@@ -4,10 +4,11 @@ from .agents import select_agents, AGENTS
 APPROVAL_AGENTS={"accounting"}
 
 def local_plan(objective: str) -> tuple[list[str],list[PlanStep]]:
-    """Safe deterministic planner used until/configuration-independent of an LLM."""
+    """Safe deterministic planner used without requiring an LLM."""
     agents=select_agents(objective)
+    workers=[agent_id for agent_id in agents if agent_id!="verifier"]
     steps=[]
-    for i,agent_id in enumerate(a for a in agents if a!="verifier", start=1):
+    for i,agent_id in enumerate(workers, start=1):
         steps.append(PlanStep(
             id=f"step-{i}",
             title=f"{AGENTS[agent_id].name}: work on mission objective",
