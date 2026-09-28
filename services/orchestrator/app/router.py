@@ -25,7 +25,12 @@ class ModelRouter:
             if not state.enabled: continue
             try:
                 return await state.provider.complete(prompt), state.provider.name
+            except QuotaError as exc:
+                state.failures += 1
+                state.enabled = False
+                errors.append(f"{state.provider.name}: quota:{exc}")
             except ProviderError as exc:
                 state.failures += 1
+                if state.failures >= 3: state.enabled = False
                 errors.append(f"{state.provider.name}: {exc}")
         raise ProviderError("No model provider available: "+"; ".join(errors))
