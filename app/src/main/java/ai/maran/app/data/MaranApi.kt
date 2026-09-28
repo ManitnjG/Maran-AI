@@ -10,6 +10,8 @@ data class RemoteMission(val id:String,val objective:String,val status:String,va
 data class ApprovalDecision(val approved:Boolean,val note:String?=null)
 data class WorkerCreate(val name:String,val skills:List<String>,val temporary:Boolean=true)
 data class WorkerDto(val id:String,val name:String,val skills:List<String>,val permissions:List<String>)
+data class VoiceCommand(val text:String,val confidence:Double=1.0)
+data class VoiceResult(val action:String,val objective:String?=null,val name:String?=null,val skills:List<String>?=null,val worker:WorkerDto?=null,val heard:String?=null,val reason:String?=null)
 
 interface MaranApi {
  @POST("missions") suspend fun createMission(@Body request:MissionCreate):RemoteMission
@@ -18,6 +20,8 @@ interface MaranApi {
  @POST("missions/{id}/approval") suspend fun approve(@Path("id") id:String,@Body decision:ApprovalDecision):RemoteMission
  @POST("workers") suspend fun createWorker(@Body request:WorkerCreate):WorkerDto
  @GET("workers") suspend fun workers():List<WorkerDto>
+ @DELETE("workers/{id}") suspend fun stopWorker(@Path("id") id:String):Map<String,Any>
+ @POST("voice/interpret") suspend fun voice(@Body request:VoiceCommand):VoiceResult
 }
 object ApiProvider {
  val api:MaranApi by lazy {
