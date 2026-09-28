@@ -28,3 +28,15 @@ The center MARAN action opens voice mode. Every substantial request becomes a Mi
 
 ## Status
 Foundation initialized. Next milestone: installable Android shell + orchestrator skeleton + model-router contracts.
+
+
+## Current executable milestone
+
+MARAN now has a working Android + FastAPI skeleton with Manager-controlled missions, approval gates, bounded worker execution, dynamic temporary workers, voice command routing, worker reuse/cleanup, durable mission context, verification state, and GitHub Actions APK builds.
+
+Voice examples:
+- "Find corporate tour leads in Chennai"
+- "Create worker Hotel Quotation Specialist"
+- "Create worker Tamil Social Media Specialist"
+
+External providers and business systems are opt-in adapters. API keys and service credentials must be supplied as deployment secrets; they are never committed to this repository.
