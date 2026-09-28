@@ -7,11 +7,15 @@ from .manager import manager
 from .voice import interpret
 from .worker_factory import factory
 from .context import context_vault
+from .providers import configured_router
+from .router import ProviderError
 
 app=FastAPI(title="MARAN Orchestrator",version="0.1.0")
 
 @app.get("/health")
-def health(): return {"ok":True,"service":"maran-orchestrator"}
+def health():
+    router=configured_router()
+    return {"ok":True,"service":"maran-orchestrator","configured_models":[s.provider.name for s in router.providers]}
 
 @app.get("/agents")
 def agents():
