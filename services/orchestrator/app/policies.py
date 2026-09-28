@@ -1,13 +1,14 @@
 from dataclasses import dataclass
 from .agents import AGENTS
+from .config import settings
 
 @dataclass(frozen=True)
 class WorkforcePolicy:
-    max_parallel:int=6
-    max_retries:int=2
-    step_timeout_seconds:int=120
+    max_parallel:int=settings.max_parallel_workers
+    max_retries:int=settings.max_worker_retries
+    step_timeout_seconds:int=settings.worker_timeout_seconds
     idle_stop_seconds:int=300
-    max_agents_per_mission:int=12
+    max_agents_per_mission:int=settings.max_agents_per_mission
 
 SENSITIVE={"draft_accounting"}
 SAFE_DYNAMIC={"read_public_web","read_files","create_files","read_code","draft_code","read_outputs"}
