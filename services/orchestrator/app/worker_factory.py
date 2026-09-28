@@ -42,4 +42,18 @@ class WorkerFactory:
         if ids:self.db.execute("UPDATE dynamic_workers SET active=0 WHERE temporary=1 AND active=1");self.db.commit()
         return ids
     def all(self):return [w.agent for w in self._active()]
+    def get(self,aid:str):
+        if aid in AGENTS:return AGENTS[aid]
+        return next((w.agent for w in self._active() if w.agent.id==aid),None)
+    def match(self,objective:str)->list[Agent]:
+        words=set(re.findall(r"[a-z0-9_-]{3,}",objective.lower()))
+        scored=[]
+        for w in self._active():
+            tokens=set(w.agent.skills)|set(re.findall(r"[a-z0-9_-]{3,}",w.agent.name.lower()))
+            score=len(words & {t.lower() for t in tokens})
+            if score:scored.append((score,w.agent))
+        return [a for _,a in sorted(scored,key=lambda x:(-x[0],x[1].id))]
+    def is_temporary(self,aid:str)->bool:
+        row=self.db.execute("SELECT temporary FROM dynamic_workers WHERE id=?",(aid,)).fetchone()
+        return bool(row[0]) if row else False
 factory=WorkerFactory()
