@@ -68,3 +68,9 @@ def test_context_vault_endpoint_exists_for_mission():
     r=client.get(f'/missions/{m["id"]}/context')
     assert r.status_code==200
     assert isinstance(r.json(),dict)
+
+
+def test_stopped_dynamic_worker_disappears():
+    w=client.post("/workers",json={"name":"Temporary Unique Pricing Worker","skills":["unique_pricing_skill"],"temporary":True}).json()
+    assert client.delete(f'/workers/{w["id"]}').status_code==200
+    assert not any(x["id"]==w["id"] for x in client.get("/workers").json())
