@@ -26,8 +26,11 @@ async def execute_local(mission:Mission)->Mission:
     mission.status=MissionStatus.verifying
     verifier=next((s for s in mission.plan if s.agent=="verifier"),None)
     if verifier: await guarded(verifier)
-    mission.verification=Verification.unverified
-    mission.status=MissionStatus.completed
+    failed=[s.id for s in mission.plan if s.status=="failed"]
+    completed=[s.id for s in mission.plan if s.status=="completed"]
+    mission.result={"summary":"Mission workflow completed","completed_steps":completed,"failed_steps":failed,"note":"Worker tool adapters determine substantive output."}
+    mission.verification=Verification.partial if completed and not failed else Verification.unverified
+    mission.status=MissionStatus.completed if not failed else MissionStatus.failed
     mission.events.append({"type":"mission_completed","verification":mission.verification.value})
     released=[]
     for aid in mission.assigned_agents:
