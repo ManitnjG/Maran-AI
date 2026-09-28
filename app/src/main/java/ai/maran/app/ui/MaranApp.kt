@@ -1,6 +1,7 @@
 package ai.maran.app.ui
-
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
@@ -9,75 +10,33 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
-
-private enum class Tab(val label:String,val icon:ImageVector){
-    Home("Home",Icons.Rounded.Home), Missions("Missions",Icons.Rounded.Checklist),
-    Maran("MARAN",Icons.Rounded.GraphicEq), Workforce("Workforce",Icons.Rounded.Groups),
-    More("More",Icons.Rounded.GridView)
+import androidx.lifecycle.viewmodel.compose.viewModel
+import ai.maran.app.data.RemoteMission
+private enum class Tab(val label:String,val icon:ImageVector){Home("Home",Icons.Rounded.Home),Missions("Missions",Icons.Rounded.Checklist),Maran("MARAN",Icons.Rounded.GraphicEq),Workforce("Workforce",Icons.Rounded.Groups),More("More",Icons.Rounded.GridView)}
+@Composable fun MaranApp(vm:MaranViewModel=viewModel()){
+ var tab by remember{mutableStateOf(Tab.Home)}; val state by vm.state.collectAsState()
+ MaterialTheme(colorScheme=if(androidx.compose.foundation.isSystemInDarkTheme()) darkColorScheme() else lightColorScheme()){
+  Scaffold(bottomBar={NavigationBar{Tab.entries.forEach{item->NavigationBarItem(selected=tab==item,onClick={tab=item},icon={Icon(item.icon,null)},label={Text(item.label)})}}}){pad->
+   Box(Modifier.padding(pad).fillMaxSize()){when(tab){Tab.Home->HomeScreen(state,vm::create,{tab=Tab.Maran});Tab.Missions->MissionScreen(state,vm::decide);Tab.Maran->CommandScreen(state,vm::create);Tab.Workforce->WorkforceScreen(state.missions);Tab.More->SimpleScreen("More","Skills · Connections · Knowledge · Automations · Settings",Icons.Rounded.GridView)}}
+  }
+ }
 }
-data class Mission(val title:String,val detail:String,val progress:Float)
-
-@Composable fun MaranApp(){
-    var tab by remember { mutableStateOf(Tab.Home) }
-    MaterialTheme(colorScheme=if(androidx.compose.foundation.isSystemInDarkTheme()) darkColorScheme() else lightColorScheme()){
-        Scaffold(bottomBar={
-            NavigationBar {
-                Tab.entries.forEach { item ->
-                    NavigationBarItem(selected=tab==item,onClick={tab=item},icon={
-                        if(item==Tab.Maran) FilledIconButton(onClick={tab=Tab.Maran}){Icon(item.icon,null)}
-                        else Icon(item.icon,null)
-                    },label={Text(item.label)})
-                }
-            }
-        }){ pad ->
-            Box(Modifier.padding(pad).fillMaxSize()){
-                when(tab){
-                    Tab.Home->HomeScreen()
-                    Tab.Missions->MissionsScreen()
-                    Tab.Maran->VoiceScreen()
-                    Tab.Workforce->WorkforceScreen()
-                    Tab.More->MoreScreen()
-                }
-            }
-        }
-    }
+@Composable private fun HomeScreen(state:MaranUiState,onCreate:(String)->Unit,onVoice:()->Unit){
+ var input by remember{mutableStateOf("")}
+ Column(Modifier.fillMaxSize().padding(20.dp),verticalArrangement=Arrangement.spacedBy(16.dp)){
+  Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.CenterVertically){Column{Text("MARAN",style=MaterialTheme.typography.headlineLarge);Text("Your Personal AI Workforce",color=MaterialTheme.colorScheme.onSurfaceVariant)};AssistChip(onClick={},label={Text(if(state.error==null)"● Ready" else "○ Offline")})}
+  Card(Modifier.fillMaxWidth()){Column(Modifier.padding(18.dp),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.spacedBy(12.dp)){Text("What should we get done?",style=MaterialTheme.typography.titleLarge);FilledIconButton(onClick=onVoice,modifier=Modifier.size(72.dp)){Icon(Icons.Rounded.Mic,"Talk",Modifier.size(34.dp))};OutlinedTextField(input,{input=it},Modifier.fillMaxWidth(),placeholder={Text("Ask MARAN anything…")},trailingIcon={IconButton(onClick={onCreate(input);input=""}){Icon(Icons.Rounded.Send,"Start mission")}})}}
+  state.error?.let{Text(it,color=MaterialTheme.colorScheme.error)};Text("Continue",style=MaterialTheme.typography.titleMedium)
+  LazyColumn(verticalArrangement=Arrangement.spacedBy(10.dp)){items(state.missions.take(5)){mission->MissionCard(mission,null)}}
+ }
 }
-
-@Composable private fun HomeScreen(){
-    val missions=listOf(
-        Mission("Find corporate tour leads","Lead Scout + Research Agent",.64f),
-        Mission("Website SEO audit","3 agents working",.42f),
-        Mission("September accounts","Waiting for approval",.82f)
-    )
-    Column(Modifier.fillMaxSize().padding(20.dp),verticalArrangement=Arrangement.spacedBy(18.dp)){
-        Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.CenterVertically){
-            Column { Text("MARAN",style=MaterialTheme.typography.headlineLarge); Text("Your Personal AI Workforce",color=MaterialTheme.colorScheme.onSurfaceVariant) }
-            AssistChip(onClick={},label={Text("● Ready")})
-        }
-        Card(Modifier.fillMaxWidth()){
-            Column(Modifier.padding(20.dp),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.spacedBy(12.dp)){
-                Text("What should we get done?",style=MaterialTheme.typography.titleLarge)
-                FilledIconButton(onClick={},modifier=Modifier.size(72.dp)){Icon(Icons.Rounded.Mic,"Talk to MARAN",Modifier.size(34.dp))}
-                OutlinedButton(onClick={},modifier=Modifier.fillMaxWidth()){Icon(Icons.Rounded.AutoAwesome,null); Spacer(Modifier.width(8.dp)); Text("Ask MARAN anything…")}
-            }
-        }
-        Text("Continue",style=MaterialTheme.typography.titleMedium)
-        missions.forEach { m -> Card(Modifier.fillMaxWidth()){Column(Modifier.padding(16.dp)){Text(m.title,style=MaterialTheme.typography.titleMedium);Text(m.detail,color=MaterialTheme.colorScheme.onSurfaceVariant);Spacer(Modifier.height(8.dp));LinearProgressIndicator({m.progress},Modifier.fillMaxWidth())}}}
-    }
+@Composable private fun CommandScreen(state:MaranUiState,onCreate:(String)->Unit){
+ var input by remember{mutableStateOf("")}
+ Column(Modifier.fillMaxSize().padding(24.dp),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.Center){
+  FilledIconButton(onClick={},modifier=Modifier.size(110.dp)){Icon(Icons.Rounded.GraphicEq,"MARAN voice",Modifier.size(52.dp))};Spacer(Modifier.height(20.dp));Text("MARAN",style=MaterialTheme.typography.headlineLarge);Text("Tell me the outcome. I’ll organize the workforce.");Spacer(Modifier.height(20.dp));OutlinedTextField(input,{input=it},Modifier.fillMaxWidth(),placeholder={Text("Type a mission…")});Spacer(Modifier.height(10.dp));Button(onClick={onCreate(input);input=""},enabled=!state.busy&&input.isNotBlank(),modifier=Modifier.fillMaxWidth()){Text(if(state.busy)"Planning…" else "Start mission")}
+ }
 }
-@Composable private fun MissionsScreen()=SimpleScreen("Missions","Running, approvals, scheduled, completed and failed work.",Icons.Rounded.Checklist)
-@Composable private fun WorkforceScreen()=SimpleScreen("Workforce","Chief MARAN and specialist agents will appear here.",Icons.Rounded.Groups)
-@Composable private fun MoreScreen()=SimpleScreen("More","Skills · Connections · Knowledge · Automations · Settings",Icons.Rounded.GridView)
-@Composable private fun VoiceScreen(){
-    Column(Modifier.fillMaxSize().padding(24.dp),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.Center){
-        FilledIconButton(onClick={},modifier=Modifier.size(120.dp)){Icon(Icons.Rounded.GraphicEq,"MARAN voice",Modifier.size(56.dp))}
-        Spacer(Modifier.height(24.dp));Text("MARAN",style=MaterialTheme.typography.headlineLarge)
-        Text("Tap to speak",color=MaterialTheme.colorScheme.onSurfaceVariant)
-        Spacer(Modifier.height(12.dp));Text("Listening → Planning → Working → Verifying → Done",style=MaterialTheme.typography.bodySmall)
-    }
-}
-@Composable private fun SimpleScreen(title:String,body:String,icon:ImageVector){
-    Column(Modifier.fillMaxSize().padding(24.dp),verticalArrangement=Arrangement.spacedBy(14.dp)){
-        Icon(icon,null,Modifier.size(36.dp));Text(title,style=MaterialTheme.typography.headlineLarge);Text(body,color=MaterialTheme.colorScheme.onSurfaceVariant)
-    }
-}
+@Composable private fun MissionScreen(state:MaranUiState,onDecision:(String,Boolean)->Unit){Column(Modifier.fillMaxSize().padding(20.dp)){Text("Missions",style=MaterialTheme.typography.headlineLarge);Spacer(Modifier.height(12.dp));LazyColumn(verticalArrangement=Arrangement.spacedBy(12.dp)){items(state.missions){m->MissionCard(m,if(m.status=="waiting_approval") onDecision else null)}}}}
+@Composable private fun MissionCard(m:RemoteMission,onDecision:((String,Boolean)->Unit)?){Card(Modifier.fillMaxWidth()){Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(7.dp)){Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){Text(m.objective,style=MaterialTheme.typography.titleMedium,modifier=Modifier.weight(1f));AssistChip(onClick={},label={Text(m.status.replace('_',' '))})};Text(m.assigned_agents.joinToString(" · "),color=MaterialTheme.colorScheme.onSurfaceVariant);m.plan.take(3).forEach{step->Text("• "+step.title,style=MaterialTheme.typography.bodySmall)};if(onDecision!=null){Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){OutlinedButton(onClick={onDecision(m.id,false)}){Text("Reject")};Button(onClick={onDecision(m.id,true)}){Text("Approve")}}}}}}
+@Composable private fun WorkforceScreen(missions:List<RemoteMission>){val agents=missions.flatMap{it.assigned_agents}.distinct();Column(Modifier.fillMaxSize().padding(24.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){Text("Workforce",style=MaterialTheme.typography.headlineLarge);Text("Chief MARAN",style=MaterialTheme.typography.titleLarge);agents.forEach{agent->AssistChip(onClick={},label={Text(agent.replace('_',' ').replaceFirstChar(Char::uppercase))})}}}
+@Composable private fun SimpleScreen(title:String,body:String,icon:ImageVector){Column(Modifier.fillMaxSize().padding(24.dp),verticalArrangement=Arrangement.spacedBy(14.dp)){Icon(icon,null,Modifier.size(36.dp));Text(title,style=MaterialTheme.typography.headlineLarge);Text(body,color=MaterialTheme.colorScheme.onSurfaceVariant)}}
