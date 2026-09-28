@@ -83,3 +83,11 @@ def test_dynamic_worker_is_assigned_then_released():
     done=client.post(f'/missions/{m["id"]}/run').json()
     assert any(e.get("type")=="temporary_workers_released" and w["id"] in e.get("agents",[]) for e in done["events"])
     assert not any(x["id"]==w["id"] for x in client.get("/workers").json())
+
+
+def test_manager_assigns_persistent_dynamic_worker():
+    w=client.post("/workers",json={"name":"Rail Tourism Specialist","skills":["rail","tourism"],"temporary":False}).json()
+    m=client.post("/missions",json={"objective":"research rail tourism packages"}).json()
+    assert w["id"] in m["assigned_agents"]
+    client.post(f'/missions/{m["id"]}/run')
+    assert any(x["id"]==w["id"] for x in client.get("/workers").json())
