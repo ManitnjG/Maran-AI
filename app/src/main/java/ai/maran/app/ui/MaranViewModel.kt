@@ -6,13 +6,13 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
-data class MaranUiState(val missions:List<RemoteMission> = emptyList(),val workers:List<WorkerDto> = emptyList(),val busy:Boolean=false,val error:String?=null)
+data class MaranUiState(val missions:List<RemoteMission> = emptyList(),val workers:List<WorkerDto> = emptyList(),val busy:Boolean=false,val connected:Boolean=false,val error:String?=null)
 class MaranViewModel:ViewModel(){
  private val _state=MutableStateFlow(MaranUiState()); val state=_state.asStateFlow()
  init { refresh() }
  fun refresh()=viewModelScope.launch {
-  try { _state.value=_state.value.copy(missions=ApiProvider.api.missions(),workers=ApiProvider.api.workers(),error=null) }
-  catch(e:Exception){ _state.value=_state.value.copy(error="MARAN server unavailable") }
+  try { val health=ApiProvider.api.health(); _state.value=_state.value.copy(missions=ApiProvider.api.missions(),workers=ApiProvider.api.workers(),connected=health.ok,error=null) }
+  catch(e:Exception){ _state.value=_state.value.copy(connected=false,error="MARAN server unavailable") }
  }
  fun create(objective:String)=viewModelScope.launch {
   if(objective.isBlank()) return@launch
