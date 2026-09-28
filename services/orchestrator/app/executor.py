@@ -16,11 +16,17 @@ async def execute_local(mission:Mission)->Mission:
         if step.requires_approval or step.status=="stopped": return
         async with semaphore:
             step.status="running"
-            try:
-                await asyncio.wait_for(_run_step(step),timeout=policy.step_timeout_seconds)
-                mission.events.append({"type":"step_completed","step_id":step.id,"agent":step.agent})
-            except asyncio.TimeoutError:
-                step.status="failed";mission.events.append({"type":"step_timeout","step_id":step.id,"agent":step.agent})
+            for attempt in range(policy.max_retries+1):
+                try:
+                    await asyncio.wait_for(_run_step(step),timeout=policy.step_timeout_seconds)
+                    mission.events.append({"type":"step_completed","step_id":step.id,"agent":step.agent,"attempt":attempt+1})
+                    break
+                except (asyncio.TimeoutError,Exception) as exc:
+                    if attempt<policy.max_retries:
+                        mission.events.append({"type":"step_retry","step_id":step.id,"agent":step.agent,"attempt":attempt+1})
+                        await asyncio.sleep(min(2**attempt,4))
+                    else:
+                        step.status="failed";mission.events.append({"type":"step_failed","step_id":step.id,"agent":step.agent,"error":type(exc).__name__})
     workers=[s for s in mission.plan if s.agent!="verifier"]
     await asyncio.gather(*(guarded(s) for s in workers))
     mission.status=MissionStatus.verifying
