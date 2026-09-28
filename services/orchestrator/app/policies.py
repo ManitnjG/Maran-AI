@@ -17,7 +17,9 @@ def dedupe_agents(agent_ids:list[str])->list[str]:
     seen_skills=set()
     for aid in agent_ids:
         agent=AGENTS.get(aid)
-        if not agent: continue
+        if not agent:
+            # Dynamic workers were already selected by Manager; preserve them here.
+            out.append(aid); continue
         skills=set(agent.skills)
         if aid!="verifier" and skills and skills.issubset(seen_skills): continue
         out.append(aid); seen_skills.update(skills)
