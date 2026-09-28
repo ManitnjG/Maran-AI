@@ -12,9 +12,11 @@ data class ApprovalDecision(val approved:Boolean,val note:String?=null)
 data class WorkerCreate(val name:String,val skills:List<String>,val temporary:Boolean=true)
 data class WorkerDto(val id:String,val name:String,val skills:List<String>,val permissions:List<String>)
 data class VoiceCommand(val text:String,val confidence:Double=1.0)
+data class Health(val ok:Boolean,val service:String)
 data class VoiceResult(val action:String,val objective:String?=null,val name:String?=null,val skills:List<String>?=null,val worker:WorkerDto?=null,val heard:String?=null,val reason:String?=null)
 
 interface MaranApi {
+ @GET("health") suspend fun health():Health
  @POST("missions") suspend fun createMission(@Body request:MissionCreate):RemoteMission
  @GET("missions") suspend fun missions():List<RemoteMission>
  @POST("missions/{id}/run") suspend fun runMission(@Path("id") id:String):RemoteMission
