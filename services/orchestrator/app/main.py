@@ -1,10 +1,12 @@
 from fastapi import FastAPI, HTTPException
-from .models import Mission, MissionCreate, MissionStatus, ApprovalDecision, StopRequest, VoiceCommand
+from .models import Mission, MissionCreate, MissionStatus, ApprovalDecision, StopRequest, VoiceCommand, WorkerCreate
 from .planner import local_plan
 from .store import store
 from .executor import execute_local
 from .manager import manager
 from .voice import interpret
+from .worker_factory import factory
+from .context import context_vault
 
 app=FastAPI(title="MARAN Orchestrator",version="0.1.0")
 
@@ -59,3 +61,27 @@ def stop_work(mission_id:str,request:StopRequest):
 @app.post("/voice/interpret")
 def voice_interpret(command:VoiceCommand):
     return interpret(command)
+
+
+@app.post("/workers")
+def create_worker(request:WorkerCreate):
+    worker=factory.create(request.name,request.skills,request.temporary)
+    return {"id":worker.id,"name":worker.name,"skills":worker.skills,"permissions":worker.permissions}
+
+@app.get("/workers")
+def workers():
+    return [{"id":a.id,"name":a.name,"skills":a.skills,"permissions":a.permissions} for a in factory.all()]
+
+@app.delete("/workers/{agent_id}")
+def stop_dynamic_worker(agent_id:str):
+    if not factory.stop(agent_id): raise HTTPException(404,"Dynamic worker not found")
+    return {"ok":True,"agent_id":agent_id}
+
+@app.post("/workers/cleanup")
+def cleanup_workers():
+    return {"stopped":factory.cleanup()}
+
+@app.get("/missions/{mission_id}/context")
+def mission_context(mission_id:str):
+    if not store.get(mission_id): raise HTTPException(404,"Mission not found")
+    return context_vault.get(mission_id)
