@@ -61,3 +61,10 @@ def test_voice_can_create_dynamic_worker():
     assert body["action"]=="create_worker"
     assert body["worker"]["name"]=="Hotel Quotation Specialist"
     assert "hotel" in body["worker"]["skills"]
+
+
+def test_context_vault_endpoint_exists_for_mission():
+    m=client.post("/missions",json={"objective":"research tour market"}).json()
+    r=client.get(f'/missions/{m["id"]}/context')
+    assert r.status_code==200
+    assert isinstance(r.json(),dict)
