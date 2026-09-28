@@ -1,6 +1,7 @@
 import asyncio
 from .models import Mission, MissionStatus, Verification
 from .policies import policy
+from .worker_factory import factory
 
 async def _run_step(step):
     # Adapter boundary: real worker/tool implementations replace this body.
@@ -28,4 +29,8 @@ async def execute_local(mission:Mission)->Mission:
     mission.verification=Verification.unverified
     mission.status=MissionStatus.completed
     mission.events.append({"type":"mission_completed","verification":mission.verification.value})
+    released=[]
+    for aid in mission.assigned_agents:
+        if factory.is_temporary(aid) and factory.stop(aid):released.append(aid)
+    if released:mission.events.append({"type":"temporary_workers_released","agents":released})
     return mission
