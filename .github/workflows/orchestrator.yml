@@ -2,7 +2,9 @@ name: Orchestrator CI
 on:
   push:
     branches: [ main ]
+    paths: ['services/orchestrator/**', '.github/workflows/orchestrator.yml']
   pull_request:
+    paths: ['services/orchestrator/**', '.github/workflows/orchestrator.yml']
   workflow_dispatch:
 jobs:
   test:
@@ -10,10 +12,12 @@ jobs:
     defaults:
       run:
         working-directory: services/orchestrator
+    env:
+      PYTHONPATH: ${{ github.workspace }}/services/orchestrator
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
       - run: pip install -r requirements.txt pytest
-      - run: pytest -q
+      - run: python -m pytest -q
