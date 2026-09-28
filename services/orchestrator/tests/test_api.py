@@ -53,3 +53,11 @@ def test_dynamic_worker_create_reuse_and_cleanup():
     assert any(w["id"]==one["id"] for w in listed)
     cleaned=client.post("/workers/cleanup").json()
     assert one["id"] in cleaned["stopped"]
+
+
+def test_voice_can_create_dynamic_worker():
+    r=client.post("/voice/interpret",json={"text":"create worker Hotel Quotation Specialist","confidence":0.98})
+    body=r.json()
+    assert body["action"]=="create_worker"
+    assert body["worker"]["name"]=="Hotel Quotation Specialist"
+    assert "hotel" in body["worker"]["skills"]
