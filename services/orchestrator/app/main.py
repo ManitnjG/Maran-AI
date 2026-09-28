@@ -60,7 +60,11 @@ def stop_work(mission_id:str,request:StopRequest):
 
 @app.post("/voice/interpret")
 def voice_interpret(command:VoiceCommand):
-    return interpret(command)
+    result=interpret(command)
+    if result.get("action")=="create_worker":
+        worker=factory.create(result["name"],result["skills"],result["temporary"])
+        return {**result,"worker":{"id":worker.id,"name":worker.name,"skills":worker.skills,"permissions":worker.permissions}}
+    return result
 
 
 @app.post("/workers")
