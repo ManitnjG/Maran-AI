@@ -1,59 +1,174 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "MaranMission",
-  "type": "object",
-  "required": [
-    "id",
-    "objective",
-    "status",
-    "createdAt"
-  ],
-  "properties": {
-    "id": {
-      "type": "string"
-    },
-    "objective": {
-      "type": "string",
-      "minLength": 1
-    },
-    "status": {
+  "$defs": {
+    "MissionStatus": {
       "enum": [
         "queued",
         "planning",
         "running",
         "waiting_approval",
         "verifying",
+        "blocked",
         "completed",
         "failed",
         "cancelled"
-      ]
-    },
-    "createdAt": {
-      "type": "string",
-      "format": "date-time"
-    },
-    "workspaceId": {
+      ],
+      "title": "MissionStatus",
       "type": "string"
     },
-    "assignedAgents": {
-      "type": "array",
-      "items": {
-        "type": "string"
-      }
+    "PlanStep": {
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "agent": {
+          "title": "Agent",
+          "type": "string"
+        },
+        "requires_approval": {
+          "default": false,
+          "title": "Requires Approval",
+          "type": "boolean"
+        },
+        "status": {
+          "default": "pending",
+          "title": "Status",
+          "type": "string"
+        },
+        "approved": {
+          "default": false,
+          "title": "Approved",
+          "type": "boolean"
+        },
+        "output": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Output"
+        },
+        "provider": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Provider"
+        },
+        "error": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Error"
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "agent"
+      ],
+      "title": "PlanStep",
+      "type": "object"
     },
-    "verification": {
+    "Verification": {
       "enum": [
         "pending",
         "verified",
         "partial",
         "conflicting",
         "unverified"
-      ]
-    },
-    "checkpoint": {
-      "type": "object",
-      "additionalProperties": true
+      ],
+      "title": "Verification",
+      "type": "string"
     }
   },
-  "additionalProperties": true
+  "properties": {
+    "id": {
+      "title": "Id",
+      "type": "string"
+    },
+    "objective": {
+      "title": "Objective",
+      "type": "string"
+    },
+    "workspace_id": {
+      "default": "default",
+      "title": "Workspace Id",
+      "type": "string"
+    },
+    "status": {
+      "$ref": "#/$defs/MissionStatus",
+      "default": "queued"
+    },
+    "verification": {
+      "$ref": "#/$defs/Verification",
+      "default": "pending"
+    },
+    "assigned_agents": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Assigned Agents",
+      "type": "array"
+    },
+    "plan": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/PlanStep"
+      },
+      "title": "Plan",
+      "type": "array"
+    },
+    "events": {
+      "default": [],
+      "items": {
+        "type": "object"
+      },
+      "title": "Events",
+      "type": "array"
+    },
+    "result": {
+      "anyOf": [
+        {
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Result"
+    },
+    "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+    }
+  },
+  "required": [
+    "objective"
+  ],
+  "title": "Mission",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
 }

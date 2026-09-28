@@ -1,4 +1,6 @@
-# Architecture
+# Target architecture
+
+This document describes the planned architecture. See [STATUS.md](STATUS.md) for what is currently implemented.
 
 User → Android Client → API Gateway → Chief AI / Mission Orchestrator → Agent Registry → Tool Gateway → External Services
 

@@ -27,7 +27,7 @@ Bottom navigation: **Home · Missions · MARAN · Workforce · More**
 The center MARAN action opens voice mode. Every substantial request becomes a Mission with plan, agents, progress, evidence, approvals and results.
 
 ## Status
-Foundation initialized. Next milestone: installable Android shell + orchestrator skeleton + model-router contracts.
+See [current implementation status](docs/STATUS.md) for working features, deployment requirements and unfinished integrations.
 
 
 ## Current executable milestone
