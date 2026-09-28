@@ -43,3 +43,13 @@ def test_destructive_voice_requires_confirmation():
 def test_normal_voice_becomes_mission():
     r=client.post("/voice/interpret",json={"text":"find corporate tour leads","confidence":0.95})
     assert r.json()["action"]=="mission"
+
+
+def test_dynamic_worker_create_reuse_and_cleanup():
+    one=client.post("/workers",json={"name":"Hotel Quotation Worker","skills":["hotel","quotation"],"temporary":True}).json()
+    two=client.post("/workers",json={"name":"Another Quote Worker","skills":["hotel","quotation"],"temporary":True}).json()
+    assert one["id"]==two["id"]
+    listed=client.get("/workers").json()
+    assert any(w["id"]==one["id"] for w in listed)
+    cleaned=client.post("/workers/cleanup").json()
+    assert one["id"] in cleaned["stopped"]
