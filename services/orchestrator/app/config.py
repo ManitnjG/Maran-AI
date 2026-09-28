@@ -8,5 +8,7 @@ class Settings:
     opencode_enabled: bool=os.getenv("MARAN_OPENCODE_ENABLED","false").lower()=="true"
     max_parallel_workers: int=int(os.getenv("MARAN_MAX_PARALLEL_WORKERS","6"))
     worker_timeout_seconds: int=int(os.getenv("MARAN_WORKER_TIMEOUT_SECONDS","120"))
+    max_worker_retries: int=int(os.getenv("MARAN_MAX_WORKER_RETRIES","2"))
+    max_agents_per_mission: int=int(os.getenv("MARAN_MAX_AGENTS_PER_MISSION","24"))
 
 settings=Settings()
