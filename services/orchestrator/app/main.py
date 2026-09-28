@@ -1,3 +1,4 @@
+from contextlib import asynccontextmanager
 import asyncio
 import os
 import secrets
@@ -14,7 +15,23 @@ from .context import context_vault
 from .providers import configured_router
 from .router import ProviderError
 
-app=FastAPI(title="MARAN Orchestrator",version="0.1.0")
+@asynccontextmanager
+async def lifespan(app):
+    if os.getenv("MARAN_ENV") == "production" and len(os.getenv("MARAN_ACCESS_TOKEN", "")) < 24:
+        raise RuntimeError("Production requires a MARAN_ACCESS_TOKEN of at least 24 characters")
+    for m in store.all():
+        if m.status in (MissionStatus.running, MissionStatus.verifying):
+            m.status = MissionStatus.blocked
+            for step in m.plan:
+                if step.status == "running": step.status = "pending"
+            m.events.append({"type": "restart_recovered", "note": "Retry to continue incomplete work"})
+            store.put(m)
+    yield
+    tasks = list(active_runs.values())
+    for task in tasks: task.cancel()
+    await asyncio.gather(*tasks, return_exceptions=True)
+
+app=FastAPI(title="MARAN Orchestrator",version="0.3.0",lifespan=lifespan)
 
 # Run one ASGI worker: active task ownership is process-local.
 active_runs: dict[str, asyncio.Task] = {}
@@ -137,3 +154,75 @@ def cleanup_workers():
 def mission_context(mission_id:str):
     if not store.get(mission_id): raise HTTPException(404,"Mission not found")
     return context_vault.get(mission_id)
+
+# Authenticated utility endpoints used by the Android Tools screen.
+from pydantic import BaseModel, Field
+from fastapi.responses import Response
+from .business_tools import SalesVoucher, sales_voucher_xml
+from .capabilities import capabilities, diagnostics
+from .web_tools import research, fetch_page, ToolError
+
+class SearchRequest(BaseModel):
+    query: str = Field(min_length=1, max_length=2000)
+
+class PageRequest(BaseModel):
+    url: str = Field(min_length=8, max_length=2000)
+
+@app.get('/capabilities')
+def get_capabilities():
+    return capabilities()
+
+@app.post('/diagnostics')
+async def check_connections():
+    return await diagnostics()
+
+@app.post('/tools/search')
+async def search_public(req: SearchRequest):
+    try: return await research(req.query)
+    except ToolError as exc: raise HTTPException(503, str(exc)) from exc
+
+@app.post('/tools/page')
+async def read_public_page(req: PageRequest):
+    try: return await fetch_page(req.url)
+    except ToolError as exc: raise HTTPException(503, str(exc)) from exc
+
+@app.post('/tools/tally-voucher')
+def export_voucher(req: SalesVoucher):
+    return {'filename': 'maran-sales-voucher.xml', 'content': sales_voucher_xml(req),
+            'note': 'Accounting voucher draft only. Review amounts, date, company and existing ledger names before importing in Tally. No GST treatment or filing is included. Nothing has been posted.'}
+
+@app.get('/missions/{mission_id}/export')
+def export_mission(mission_id: str):
+    m = store.get(mission_id)
+    if not m: raise HTTPException(404, 'Mission not found')
+    parts = [m.objective, f'Status: {m.status.value} | Verification: {m.verification.value}']
+    for step in m.plan:
+        parts.extend([f'\n## {step.title} ({step.status})', step.output or step.error or 'No output'])
+        if step.evidence:
+            parts.append('Retrieved at: ' + step.evidence.get('retrieved_at', 'unknown'))
+            parts.extend(step.evidence.get('sources', []))
+    return {'filename': f'maran-{m.id}.txt', 'content': '\n\n'.join(parts)}
+
+@app.get('/backup')
+def export_backup():
+    # Portable JSON only: no provider keys, auth tokens or external credentials.
+    return {'schema_version': 1, 'missions': [m.model_dump(mode='json') for m in store.all()]}
+
+class BackupImport(BaseModel):
+    schema_version: int
+    missions: list[Mission] = Field(max_length=500)
+
+@app.post('/backup/restore')
+async def restore_backup(req: BackupImport):
+    if req.schema_version != 1: raise HTTPException(422, 'Unsupported backup version')
+    ids = [m.id for m in req.missions]
+    if len(set(ids)) != len(ids): raise HTTPException(422, 'Duplicate mission IDs')
+    if any(store.get(mid) for mid in ids): raise HTTPException(409, 'Restore would overwrite existing missions')
+    for m in req.missions:
+        if m.status not in (MissionStatus.completed, MissionStatus.cancelled, MissionStatus.waiting_approval):
+            m.status = MissionStatus.blocked
+        for step in m.plan:
+            if step.status == 'running': step.status = 'pending'
+        m.events.append({'type': 'backup_restored', 'note': 'No work executed by restore'})
+    store.put_many(req.missions)
+    return {'restored': len(req.missions)}

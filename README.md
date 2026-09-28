@@ -61,4 +61,6 @@ API key but does require model hosting. Configured cloud providers remain availa
 fallbacks. No model configured means a **blocked** mission, never a fabricated success.
 
 Read [implementation status and remaining work](docs/STATUS.md) before deployment.
-Generated content is a draft; live research and business-system integrations are still pending.
+Generated model content is a draft. Public-source research now works through Exa MCP without a key (rate limited); business-system writebacks are still pending.
+
+See [deployment and phone setup](docs/DEPLOYMENT.md). Successful Android CI publishes a debug preview APK on the Releases page.

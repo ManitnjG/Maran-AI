@@ -4,8 +4,12 @@ import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import retrofit2.http.*
 
+data class Evidence(val sources:List<String> = emptyList(),val retrieved_at:String?=null)
+data class Capabilities(val models:List<String>,val storage:String,val features:Map<String,String>,val note:String)
+data class ExportResult(val filename:String,val content:String,val note:String?=null)
+data class SalesVoucherRequest(val company:String,val customer_ledger:String,val sales_ledger:String,val voucher_number:String,val voucher_date:String,val amount:String)
 data class MissionCreate(val objective:String,val workspace_id:String="default")
-data class PlanStep(val id:String,val title:String,val agent:String,val requires_approval:Boolean=false,val status:String="pending",val output:String?=null,val provider:String?=null,val error:String?=null)
+data class PlanStep(val id:String,val title:String,val agent:String,val requires_approval:Boolean=false,val status:String="pending",val output:String?=null,val provider:String?=null,val error:String?=null,val evidence:Evidence?=null)
 data class MissionResult(val summary:String?=null,val completed_steps:List<String> = emptyList(),val failed_steps:List<String> = emptyList(),val note:String?=null)
 data class RemoteMission(val id:String,val objective:String,val status:String,val verification:String,val assigned_agents:List<String>,val plan:List<PlanStep>,val result:MissionResult?=null)
 data class StopRequest(val reason:String="Stopped by user")
@@ -17,6 +21,12 @@ data class Health(val ok:Boolean,val service:String)
 data class VoiceResult(val action:String,val objective:String?=null,val name:String?=null,val skills:List<String>?=null,val worker:WorkerDto?=null,val heard:String?=null,val reason:String?=null)
 
 interface MaranApi {
+ @GET("capabilities") suspend fun capabilities():Capabilities
+ @POST("diagnostics") suspend fun diagnostics():com.google.gson.JsonObject
+ @POST("backup/restore") suspend fun restore(@Body data:com.google.gson.JsonObject):com.google.gson.JsonObject
+ @GET("backup") suspend fun backup():com.google.gson.JsonObject
+ @POST("tools/tally-voucher") suspend fun voucher(@Body request:SalesVoucherRequest):ExportResult
+ @GET("missions/{id}/export") suspend fun export(@Path("id") id:String):ExportResult
  @GET("health") suspend fun health():Health
  @POST("missions") suspend fun createMission(@Body request:MissionCreate):RemoteMission
  @GET("missions") suspend fun missions():List<RemoteMission>

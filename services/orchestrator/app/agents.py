@@ -22,13 +22,13 @@ def select_agents(objective: str) -> list[str]:
     q=objective.lower()
     selected=[]
     rules={
-      "tour_leads":("tour lead","travel lead","tour enquiry","tour inquiry"),
-      "seo":("seo","keyword","search ranking"),
-      "social":("instagram","social media","youtube","facebook","reel"),
-      "documents":("pdf","document","ocr","word","excel"),
-      "accounting":("gst","tally","invoice","accounts"),
+      "tour_leads":("tour lead","travel lead","tour enquiry","tour inquiry","சுற்றுலா","வாடிக்கையாளர்"),
+      "seo":("seo","keyword","search ranking","தேடுபொறி"),
+      "social":("instagram","social media","youtube","facebook","reel","சமூக ஊடகம்"),
+      "documents":("pdf","document","ocr","word","excel","ஆவணம்"),
+      "accounting":("gst","tally","invoice","accounts","கணக்கு","விலைப்பட்டியல்"),
       "coding":("code","android","github","apk","software","app"),
-      "research":("research","find","verify","compare","search"),
+      "research":("research","find","verify","compare","search","தேடு","ஆராய்ச்சி"),
     }
     for agent,words in rules.items():
         if any(w in q for w in words): selected.append(agent)

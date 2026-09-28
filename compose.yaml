@@ -1,0 +1,19 @@
+# For a machine capable of hosting a local model. No cloud model API key needed.
+services:
+  api:
+    build: ./services/orchestrator
+    ports: ["8000:8000"]
+    environment:
+      MARAN_ACCESS_TOKEN: ${MARAN_ACCESS_TOKEN:?Set MARAN_ACCESS_TOKEN}
+      MARAN_ENV: production
+      MARAN_STORAGE_MODE: persistent_volume
+      MARAN_OLLAMA_URL: http://ollama:11434/v1
+      MARAN_OLLAMA_MODEL: ${MARAN_OLLAMA_MODEL:-qwen2.5:3b}
+    volumes: ["maran-data:/data"]
+    depends_on: [ollama]
+  ollama:
+    image: ollama/ollama:latest
+    volumes: ["ollama-data:/root/.ollama"]
+volumes:
+  maran-data:
+  ollama-data:

@@ -1,4 +1,5 @@
 import os
+import shutil
 import httpx
 from .router import ModelRouter,ProviderError,QuotaError
 from .config import settings
@@ -53,4 +54,11 @@ def configured_router()->ModelRouter:
     local_url=os.getenv("MARAN_OLLAMA_URL", "").strip()
     if local_url:
         providers.append(OpenAICompatibleProvider("ollama",local_url,"MARAN_OLLAMA_API_KEY",os.getenv("MARAN_OLLAMA_MODEL","qwen2.5:3b"),requires_key=False))
+    if os.getenv("MARAN_OPENCODE_FREE_ENABLED", "false").lower() == "true" and shutil.which("opencode"):
+        from .opencode_provider import OpenCodeCLIProvider
+        requested = os.getenv("MARAN_OPENCODE_FREE_MODELS", "opencode/big-pickle,opencode/mimo-v2.6-flash-free").split(",")
+        for model in requested[:2]:
+            model=model.strip()
+            if model.startswith("opencode/") and (model.endswith("-free") or model=="opencode/big-pickle"):
+                providers.append(OpenCodeCLIProvider(model))
     return ModelRouter(providers)

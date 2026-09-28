@@ -27,6 +27,7 @@ class PlanStep(BaseModel):
     output: str | None = None
     provider: str | None = None
     error: str | None = None
+    evidence: dict[str, Any] | None = None
 
 class Mission(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid4()))

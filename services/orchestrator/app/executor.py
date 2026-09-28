@@ -1,9 +1,11 @@
 import asyncio
+import re
 from .models import Mission, MissionStatus, Verification
 from .policies import policy
 from .providers import configured_router
 from .router import ProviderError
 from .context import context_vault
+from .web_tools import research, fetch_page, ToolError
 
 
 async def execute_local(mission: Mission, checkpoint=None) -> Mission:
@@ -13,12 +15,14 @@ async def execute_local(mission: Mission, checkpoint=None) -> Mission:
     router = configured_router()
     semaphore = asyncio.Semaphore(max(1, policy.max_parallel))
     mission.status = MissionStatus.running
+    research_task = None
 
     def save():
         if checkpoint:
             checkpoint(mission)
 
     async def guarded(step):
+        nonlocal research_task
         if step.status in ("completed", "stopped"):
             return
         if step.requires_approval and not step.approved:
@@ -29,17 +33,33 @@ async def execute_local(mission: Mission, checkpoint=None) -> Mission:
             step.status = "running"
             save()
             try:
-                prompt = (
-                    f"You are MARAN's {step.agent} worker. Produce a useful draft for this objective:\n"
-                    f"{mission.objective}\nOnly draft content; do not claim to execute actions, browse, "
-                    "verify live facts, contact people, file GST, or write to Tally. State missing inputs "
-                    "and mark unsupported facts as unverified. Never invent leads or contact details."
-                )
-                output, provider = await asyncio.wait_for(router.complete(prompt), timeout=policy.step_timeout_seconds)
+                if step.agent in ("research", "tour_leads", "seo"):
+                    if research_task is None:
+                        urls = re.findall(r"https?://[^\s<>]+", mission.objective)
+                        operation = fetch_page(urls[0].rstrip(".,)")) if urls else research(mission.objective)
+                        research_task = asyncio.create_task(operation)
+                    evidence = await asyncio.wait_for(asyncio.shield(research_task), timeout=policy.step_timeout_seconds)
+                    step.evidence = evidence
+                    output = ("Retrieved public sources\n\n" + evidence["text"] + "\n\n" + evidence["note"])
+                    provider = evidence["provider"]
+                    if step.agent == "seo":
+                        output += "\n\nContent research only: technical SEO metrics and ranking positions were not measured."
+                else:
+                    prompt = (
+                        f"You are MARAN's {step.agent} worker. Produce a useful draft for this objective:\n"
+                        f"{mission.objective}\nOnly draft content; do not claim to execute actions, browse, "
+                        "verify live facts, contact people, file GST, or write to Tally. State missing inputs "
+                        "and mark unsupported facts as unverified. Never invent leads or contact details."
+                    )
+                    output, provider = await asyncio.wait_for(router.complete(prompt), timeout=policy.step_timeout_seconds)
                 step.output, step.provider, step.error = output, provider, None
                 step.status = "completed"
-                context_vault.put(mission.id, step.id, {"output": output, "provider": provider})
+                context_vault.put(mission.id, step.id, {"output": output, "provider": provider, "evidence": step.evidence})
                 mission.events.append({"type": "step_completed", "step_id": step.id, "provider": provider})
+            except ToolError as exc:
+                step.status = "blocked"
+                step.error = str(exc)
+                mission.events.append({"type": "step_blocked", "step_id": step.id, "reason": "web_unavailable"})
             except (ProviderError, asyncio.TimeoutError) as exc:
                 step.status = "blocked"
                 step.error = "No model is available. Configure a provider or a local Ollama server, then retry."
@@ -50,24 +70,30 @@ async def execute_local(mission: Mission, checkpoint=None) -> Mission:
     try:
         await asyncio.gather(*(guarded(s) for s in mission.plan if s.agent != "verifier"))
     except asyncio.CancelledError:
+        if research_task and not research_task.done():
+            research_task.cancel()
+            await asyncio.gather(research_task, return_exceptions=True)
         for step in mission.plan:
             if step.status == "running":
                 step.status = "pending"
         save()
         raise
+    if research_task and not research_task.done():
+        research_task.cancel()
+        await asyncio.gather(research_task, return_exceptions=True)
     completed = [s.id for s in mission.plan if s.agent != "verifier" and s.status == "completed"]
     blocked = [s.id for s in mission.plan if s.agent != "verifier" and s.status != "completed"]
     for step in mission.plan:
         if step.agent == "verifier" and step.status != "stopped":
             step.status = "completed" if completed and not blocked else "blocked"
-            step.output = "Draft output only. No live sources or external actions have been independently verified."
-    mission.verification = Verification.unverified
+            step.output = "Outputs reviewed for presence only. Retrieved sources are attributed, not independently fact-checked. No business transactions were executed."
+    mission.verification = Verification.partial if any(s.evidence for s in mission.plan) else Verification.unverified
     mission.status = MissionStatus.blocked if blocked else MissionStatus.completed
     mission.result = {
-        "summary": "Mission needs configuration or missing steps" if blocked else "Draft ready for review",
+        "summary": "Mission needs configuration or missing steps" if blocked else "Results ready for review",
         "completed_steps": completed, "blocked_steps": blocked, "failed_steps": [],
-        "note": "No external actions were performed. Drafts are not verified facts or completed business transactions."
+        "note": "No external actions were performed. Sources and drafts need review; they are not confirmed leads or completed business transactions."
     }
-    mission.events.append({"type": "mission_blocked" if blocked else "mission_completed", "verification": "unverified"})
+    mission.events.append({"type": "mission_blocked" if blocked else "mission_completed", "verification": mission.verification.value})
     save()
     return mission

@@ -1,8 +1,8 @@
 import re
 from .models import VoiceCommand
 
-DESTRUCTIVE=("stop all","delete","remove worker","cancel mission")
-CREATE_MARKERS=("create worker","add worker","create agent","add agent","worker create","agent create")
+DESTRUCTIVE=("நிறுத்து","நீக்கு","ரத்து","stop all","delete","remove worker","cancel mission")
+CREATE_MARKERS=("பணியாளரை உருவாக்கு","பணியாளர் உருவாக்கு","ஏஜென்ட் உருவாக்கு","create worker","add worker","create agent","add agent","worker create","agent create")
 
 def _worker_request(text:str):
     low=text.lower()
@@ -11,11 +11,12 @@ def _worker_request(text:str):
     tail=text[low.index(marker)+len(marker):].strip(" :-,")
     name=(tail or "Specialist Worker").strip()
     # Human speech can name the specialty naturally; Manager derives reusable skill tokens.
-    skills=[w.lower() for w in re.findall(r"[A-Za-z][A-Za-z0-9_-]{2,}",name) if w.lower() not in {"worker","agent","specialist","create","add"}]
+    skills=[w.lower() for w in re.findall(r"[^\W\d][\w-]{2,}",name,flags=re.UNICODE) if w.lower() not in {"worker","agent","specialist","create","add"}]
     return {"action":"create_worker","name":name[:80],"skills":skills[:12] or ["general"],"temporary":True}
 
 def interpret(command:VoiceCommand)->dict:
-    text=command.text.strip()
+    text=re.sub(r"^(?:hey\s+)?(?:maran|மாறன்|மாரன்)[ ,:]*", "", command.text.strip(), flags=re.I).strip()
+    if not text:return {"action":"confirm","heard":command.text,"reason":"missing_command"}
     low=text.lower()
     sensitive=any(x in low for x in DESTRUCTIVE)
     if command.confidence < 0.78 or sensitive:

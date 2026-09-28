@@ -5,7 +5,7 @@ on:
       tag:
         description: Release tag
         required: true
-        default: v0.1.0
+        default: v0.3.0-preview
 jobs:
   release:
     runs-on: ubuntu-latest
@@ -20,10 +20,19 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
-      - run: gradle :app:assembleDebug --stacktrace ${{ secrets.MARAN_API_BASE_URL != '' && format('-PMARAN_API_BASE_URL={0}', secrets.MARAN_API_BASE_URL) || '' }}
-      - run: cp app/build/outputs/apk/debug/app-debug.apk MARAN-${{ inputs.tag }}.apk
+      - name: Build debug preview
+        env:
+          MARAN_API_BASE_URL: ${{ secrets.MARAN_API_BASE_URL }}
+        run: |
+          if [ -n "$MARAN_API_BASE_URL" ]; then
+            gradle :app:assembleDebug --stacktrace "-PMARAN_API_BASE_URL=$MARAN_API_BASE_URL"
+          else
+            gradle :app:assembleDebug --stacktrace
+          fi
+      - run: cp app/build/outputs/apk/debug/app-debug.apk MARAN-preview.apk
       - uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ inputs.tag }}
-          files: MARAN-${{ inputs.tag }}.apk
+          files: MARAN-preview.apk
+          prerelease: true
           generate_release_notes: true

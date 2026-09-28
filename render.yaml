@@ -1,0 +1,21 @@
+# Free personal preview. Render free storage is ephemeral; export backups before redeploys.
+services:
+  - type: web
+    name: maran-ai
+    runtime: docker
+    plan: free
+    region: singapore
+    dockerfilePath: ./services/orchestrator/Dockerfile
+    dockerContext: ./services/orchestrator
+    healthCheckPath: /health
+    envVars:
+      - key: MARAN_ACCESS_TOKEN
+        generateValue: true
+      - key: MARAN_ENV
+        value: production
+      - key: MARAN_STORAGE_MODE
+        value: ephemeral
+      - key: MARAN_WEB_ENABLED
+        value: "true"
+      - key: MARAN_OPENCODE_FREE_ENABLED
+        value: "false"
