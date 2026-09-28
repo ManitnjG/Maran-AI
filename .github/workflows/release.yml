@@ -20,7 +20,7 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
-      - run: gradle :app:assembleDebug --stacktrace
+      - run: gradle :app:assembleDebug --stacktrace ${{ secrets.MARAN_API_BASE_URL != '' && format('-PMARAN_API_BASE_URL={0}', secrets.MARAN_API_BASE_URL) || '' }}
       - run: cp app/build/outputs/apk/debug/app-debug.apk MARAN-${{ inputs.tag }}.apk
       - uses: softprops/action-gh-release@v2
         with:
