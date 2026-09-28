@@ -35,6 +35,10 @@ class Mission(BaseModel):
     events: list[dict[str, Any]] = []
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
+class VoiceCommand(BaseModel):
+    text: str = Field(min_length=1,max_length=1000)
+    confidence: float = Field(default=1.0,ge=0.0,le=1.0)
+
 class StopRequest(BaseModel):
     agent_id: str | None = None
     reason: str = "Stopped by Manager MARAN"
