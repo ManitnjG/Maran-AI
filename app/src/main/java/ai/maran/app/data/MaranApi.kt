@@ -14,6 +14,7 @@ data class WorkerDto(val id:String,val name:String,val skills:List<String>,val p
 interface MaranApi {
  @POST("missions") suspend fun createMission(@Body request:MissionCreate):RemoteMission
  @GET("missions") suspend fun missions():List<RemoteMission>
+ @POST("missions/{id}/run") suspend fun runMission(@Path("id") id:String):RemoteMission
  @POST("missions/{id}/approval") suspend fun approve(@Path("id") id:String,@Body decision:ApprovalDecision):RemoteMission
  @POST("workers") suspend fun createWorker(@Body request:WorkerCreate):WorkerDto
  @GET("workers") suspend fun workers():List<WorkerDto>
