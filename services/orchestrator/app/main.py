@@ -1,9 +1,10 @@
 from fastapi import FastAPI, HTTPException
-from .models import Mission, MissionCreate, MissionStatus, ApprovalDecision, StopRequest
+from .models import Mission, MissionCreate, MissionStatus, ApprovalDecision, StopRequest, VoiceCommand
 from .planner import local_plan
 from .store import store
 from .executor import execute_local
 from .manager import manager
+from .voice import interpret
 
 app=FastAPI(title="MARAN Orchestrator",version="0.1.0")
 
@@ -53,3 +54,8 @@ def stop_work(mission_id:str,request:StopRequest):
     if not m: raise HTTPException(404,"Mission not found")
     m=manager.stop_agent(m,request.agent_id,request.reason) if request.agent_id else manager.stop_all(m,request.reason)
     return store.put(m)
+
+
+@app.post("/voice/interpret")
+def voice_interpret(command:VoiceCommand):
+    return interpret(command)
