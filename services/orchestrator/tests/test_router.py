@@ -18,3 +18,10 @@ async def test_router_falls_back_after_quota():
 async def test_router_raises_when_all_fail():
  with pytest.raises(ProviderError):
   await ModelRouter([Fake("one",error=ProviderError("down"))]).complete("hello")
+
+
+def test_opencode_zen_provider_is_first_when_key_configured(monkeypatch):
+ from app.providers import configured_router
+ monkeypatch.setenv("OPENCODE_API_KEY","test-only")
+ r=configured_router()
+ assert r.providers[0].provider.name=="opencode-zen"
