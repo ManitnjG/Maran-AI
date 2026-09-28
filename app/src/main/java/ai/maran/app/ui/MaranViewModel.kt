@@ -17,7 +17,7 @@ class MaranViewModel:ViewModel(){
  fun create(objective:String)=viewModelScope.launch {
   if(objective.isBlank()) return@launch
   _state.value=_state.value.copy(busy=true,error=null)
-  try { ApiProvider.api.createMission(MissionCreate(objective)); refresh() }
+  try { val mission=ApiProvider.api.createMission(MissionCreate(objective)); if(mission.status!="waiting_approval") ApiProvider.api.runMission(mission.id); refresh() }
   catch(e:Exception){ _state.value=_state.value.copy(error="Could not create mission") }
   finally { _state.value=_state.value.copy(busy=false) }
  }
@@ -25,7 +25,7 @@ class MaranViewModel:ViewModel(){
   try { ApiProvider.api.createWorker(WorkerCreate(name,skills)); refresh() } catch(e:Exception){ _state.value=_state.value.copy(error="Worker creation failed") }
  }
  fun decide(id:String,approved:Boolean)=viewModelScope.launch {
-  try { ApiProvider.api.approve(id,ApprovalDecision(approved)); refresh() }
+  try { val mission=ApiProvider.api.approve(id,ApprovalDecision(approved)); if(approved) ApiProvider.api.runMission(mission.id); refresh() }
   catch(e:Exception){ _state.value=_state.value.copy(error="Approval update failed") }
  }
 }
