@@ -21,6 +21,10 @@ class MaranViewModel:ViewModel(){
   catch(e:Exception){ _state.value=_state.value.copy(error="Could not create mission") }
   finally { _state.value=_state.value.copy(busy=false) }
  }
+ fun handleVoice(text:String)=viewModelScope.launch {
+  try { val r=ApiProvider.api.voice(VoiceCommand(text)); when(r.action){ "mission"->create(r.objective?:text); "create_worker"->refresh(); else->_state.value=_state.value.copy(error="Voice confirmation required: ${r.heard?:text}") } } catch(e:Exception){ _state.value=_state.value.copy(error="Voice command failed") }
+ }
+ fun stopWorker(id:String)=viewModelScope.launch { try{ApiProvider.api.stopWorker(id);refresh()}catch(e:Exception){_state.value=_state.value.copy(error="Could not stop worker")} }
  fun createWorker(name:String,skills:List<String>)=viewModelScope.launch {
   try { ApiProvider.api.createWorker(WorkerCreate(name,skills)); refresh() } catch(e:Exception){ _state.value=_state.value.copy(error="Worker creation failed") }
  }
