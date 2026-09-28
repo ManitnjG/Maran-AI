@@ -22,6 +22,7 @@ class WakeWordController(context:Context,private val onCommand:(String)->Unit,pr
  fun stop(){active=false;awaitingCommand=false;handler.removeCallbacksAndMessages(null);recognizer.cancel();onStatus("Microphone off")}
  fun destroy(){stop();recognizer.destroy()}
  override fun onResults(results:Bundle?){
+  if(!active)return
   val text=results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull().orEmpty()
   val marker=Regex("(?i)(?:\\bmaran\\b|மாறன்|மாரன்)").find(text)
   val command=if(awaitingCommand)text else marker?.let{text.substring(it.range.last+1).trim(' ',':',',','.')} .orEmpty()
@@ -29,6 +30,7 @@ class WakeWordController(context:Context,private val onCommand:(String)->Unit,pr
   again()
  }
  override fun onError(error:Int){
+  if(!active)return
   if(error==SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS||error==SpeechRecognizer.ERROR_RECOGNIZER_BUSY||error==SpeechRecognizer.ERROR_NETWORK||error==SpeechRecognizer.ERROR_NETWORK_TIMEOUT){stop();onStatus("Listening stopped. Check microphone permission and network.")}else again()
  }
  override fun onReadyForSpeech(params:Bundle?){}
