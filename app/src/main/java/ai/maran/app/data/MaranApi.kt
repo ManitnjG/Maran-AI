@@ -1,0 +1,21 @@
+package ai.maran.app.data
+import ai.maran.app.BuildConfig
+import retrofit2.Retrofit
+import retrofit2.converter.gson.GsonConverterFactory
+import retrofit2.http.*
+
+data class MissionCreate(val objective:String,val workspace_id:String="default")
+data class PlanStep(val id:String,val title:String,val agent:String,val requires_approval:Boolean=false,val status:String="pending")
+data class RemoteMission(val id:String,val objective:String,val status:String,val verification:String,val assigned_agents:List<String>,val plan:List<PlanStep>)
+data class ApprovalDecision(val approved:Boolean,val note:String?=null)
+
+interface MaranApi {
+ @POST("missions") suspend fun createMission(@Body request:MissionCreate):RemoteMission
+ @GET("missions") suspend fun missions():List<RemoteMission>
+ @POST("missions/{id}/approval") suspend fun approve(@Path("id") id:String,@Body decision:ApprovalDecision):RemoteMission
+}
+object ApiProvider {
+ val api:MaranApi by lazy {
+  Retrofit.Builder().baseUrl(BuildConfig.MARAN_API_BASE_URL).addConverterFactory(GsonConverterFactory.create()).build().create(MaranApi::class.java)
+ }
+}
