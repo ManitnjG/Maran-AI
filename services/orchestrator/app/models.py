@@ -33,6 +33,7 @@ class Mission(BaseModel):
     assigned_agents: list[str] = []
     plan: list[PlanStep] = []
     events: list[dict[str, Any]] = []
+    result: dict[str, Any] | None = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 class WorkerCreate(BaseModel):
