@@ -35,6 +35,11 @@ class Mission(BaseModel):
     events: list[dict[str, Any]] = []
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
+class WorkerCreate(BaseModel):
+    name: str = Field(min_length=1,max_length=80)
+    skills: list[str] = Field(min_length=1,max_length=30)
+    temporary: bool = True
+
 class VoiceCommand(BaseModel):
     text: str = Field(min_length=1,max_length=1000)
     confidence: float = Field(default=1.0,ge=0.0,le=1.0)
