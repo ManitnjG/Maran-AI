@@ -35,6 +35,10 @@ class Mission(BaseModel):
     events: list[dict[str, Any]] = []
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
+class StopRequest(BaseModel):
+    agent_id: str | None = None
+    reason: str = "Stopped by Manager MARAN"
+
 class ApprovalDecision(BaseModel):
     approved: bool
     note: str | None = None
