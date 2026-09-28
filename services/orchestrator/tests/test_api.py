@@ -17,7 +17,8 @@ def test_accounting_waits_for_approval():
     body=client.post("/missions",json={"objective":"Create Tally invoice"}).json()
     assert body["status"]=="waiting_approval"
     updated=client.post(f'/missions/{body["id"]}/approval',json={"approved":True}).json()
-    assert updated["status"]=="running"
+    assert updated["status"]=="blocked"
+    assert all(s["approved"] for s in updated["plan"] if s["requires_approval"])
 
 
 def test_manager_controls_assignment_and_stop():
@@ -76,13 +77,13 @@ def test_stopped_dynamic_worker_disappears():
     assert not any(x["id"]==w["id"] for x in client.get("/workers").json())
 
 
-def test_dynamic_worker_is_assigned_then_released():
+def test_dynamic_worker_is_retained_for_blocked_retry():
     w=client.post("/workers",json={"name":"Cruise Pricing Specialist","skills":["cruise","pricing"],"temporary":True}).json()
     m=client.post("/missions",json={"objective":"research cruise pricing options"}).json()
     assert w["id"] in m["assigned_agents"]
     done=client.post(f'/missions/{m["id"]}/run').json()
-    assert any(e.get("type")=="temporary_workers_released" and w["id"] in e.get("agents",[]) for e in done["events"])
-    assert not any(x["id"]==w["id"] for x in client.get("/workers").json())
+    assert done["status"]=="blocked"
+    assert any(x["id"]==w["id"] for x in client.get("/workers").json())
 
 
 def test_manager_assigns_persistent_dynamic_worker():

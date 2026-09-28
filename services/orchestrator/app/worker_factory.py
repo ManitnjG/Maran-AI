@@ -37,9 +37,10 @@ class WorkerFactory:
         return a
     def stop(self,aid:str)->bool:
         cur=self.db.execute("UPDATE dynamic_workers SET active=0 WHERE id=? AND active=1",(aid,));self.db.commit();return cur.rowcount>0
-    def cleanup(self)->list[str]:
+    def cleanup(self,exclude=None)->list[str]:
         ids=[r[0] for r in self.db.execute("SELECT id FROM dynamic_workers WHERE temporary=1 AND active=1").fetchall()]
-        if ids:self.db.execute("UPDATE dynamic_workers SET active=0 WHERE temporary=1 AND active=1");self.db.commit()
+        ids=[aid for aid in ids if aid not in (exclude or set())]
+        for aid in ids:self.stop(aid)
         return ids
     def all(self):return [w.agent for w in self._active()]
     def get(self,aid:str):

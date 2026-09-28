@@ -19,10 +19,10 @@ class ManagerAgent:
         return mission
     def stop_agent(self,mission:Mission,agent_id:str,reason:str="Stopped by Manager MARAN")->Mission:
         for step in mission.plan:
-            if step.agent==agent_id and step.status in ("pending","running"): step.status="stopped"
+            if step.agent==agent_id and step.status in ("pending","running","blocked"): step.status="stopped"
         mission.events.append({"type":"agent_stopped","manager":self.id,"agent":agent_id,"reason":reason});return mission
     def stop_all(self,mission:Mission,reason:str="Mission stopped by Manager MARAN")->Mission:
         for step in mission.plan:
-            if step.status in ("pending","running"): step.status="stopped"
+            if step.status in ("pending","running","blocked"): step.status="stopped"
         mission.status=MissionStatus.cancelled;mission.events.append({"type":"workforce_stopped","manager":self.id,"reason":reason});return mission
 manager=ManagerAgent()

@@ -1,4 +1,8 @@
-from fastapi import FastAPI, HTTPException
+import asyncio
+import os
+import secrets
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import JSONResponse
 from .models import Mission, MissionCreate, MissionStatus, ApprovalDecision, StopRequest, VoiceCommand, WorkerCreate
 from .planner import local_plan
 from .store import store
@@ -11,6 +15,24 @@ from .providers import configured_router
 from .router import ProviderError
 
 app=FastAPI(title="MARAN Orchestrator",version="0.1.0")
+
+# Run one ASGI worker: active task ownership is process-local.
+active_runs: dict[str, asyncio.Task] = {}
+
+@app.middleware("http")
+async def authenticate(request: Request, call_next):
+    token = os.getenv("MARAN_ACCESS_TOKEN", "")
+    if token and request.url.path != "/health":
+        supplied = request.headers.get("Authorization", "")
+        if not secrets.compare_digest(supplied, "Bearer " + token):
+            return JSONResponse(status_code=401, content={"detail": "Authentication required"})
+    return await call_next(request)
+
+async def execute_saved(m):
+    try:
+        return await execute_local(m, checkpoint=store.put)
+    finally:
+        active_runs.pop(m.id, None)
 
 @app.get("/health")
 def health():
@@ -33,8 +55,15 @@ def create_mission(req:MissionCreate):
 async def run_mission(mission_id:str):
     m=store.get(mission_id)
     if not m: raise HTTPException(404,"Mission not found")
-    m=await execute_local(m)
-    return store.put(m)
+    if mission_id not in active_runs:
+        active_runs[mission_id] = asyncio.create_task(execute_saved(m))
+    task = active_runs[mission_id]
+    try:
+        return await asyncio.shield(task)
+    except asyncio.CancelledError:
+        if task.cancelled():
+            return store.get(mission_id)
+        raise
 
 @app.get("/missions",response_model=list[Mission])
 def list_missions(): return store.all()
@@ -46,16 +75,27 @@ def get_mission(mission_id:str):
     return m
 
 @app.post("/missions/{mission_id}/approval",response_model=Mission)
-def approve(mission_id:str,decision:ApprovalDecision):
+async def approve(mission_id:str,decision:ApprovalDecision):
     m=store.get(mission_id)
     if not m: raise HTTPException(404,"Mission not found")
+    if m.status != MissionStatus.waiting_approval:
+        raise HTTPException(409,"Mission is not waiting for approval")
     m.events.append({"type":"approval_decision","approved":decision.approved,"note":decision.note})
-    m.status=MissionStatus.running if decision.approved else MissionStatus.cancelled
-    return store.put(m)
-
+    if not decision.approved:
+        return store.put(manager.stop_all(m, "Approval rejected"))
+    for step in m.plan:
+        if step.requires_approval: step.approved=True
+    m.status=MissionStatus.running
+    store.put(m)
+    return await run_mission(mission_id)
 
 @app.post("/missions/{mission_id}/stop",response_model=Mission)
-def stop_work(mission_id:str,request:StopRequest):
+async def stop_work(mission_id:str,request:StopRequest):
+    task = active_runs.get(mission_id)
+    if task:
+        task.cancel()
+        try: await task
+        except asyncio.CancelledError: pass
     m=store.get(mission_id)
     if not m: raise HTTPException(404,"Mission not found")
     m=manager.stop_agent(m,request.agent_id,request.reason) if request.agent_id else manager.stop_all(m,request.reason)
@@ -81,13 +121,17 @@ def workers():
     return [{"id":a.id,"name":a.name,"skills":a.skills,"permissions":a.permissions} for a in factory.all()]
 
 @app.delete("/workers/{agent_id}")
-def stop_dynamic_worker(agent_id:str):
+async def stop_dynamic_worker(agent_id:str):
     if not factory.stop(agent_id): raise HTTPException(404,"Dynamic worker not found")
+    for m in store.all():
+        if agent_id in m.assigned_agents and m.status not in (MissionStatus.completed, MissionStatus.cancelled):
+            await stop_work(m.id, StopRequest(agent_id=agent_id, reason="Worker removed"))
     return {"ok":True,"agent_id":agent_id}
 
 @app.post("/workers/cleanup")
 def cleanup_workers():
-    return {"stopped":factory.cleanup()}
+    in_use={a for m in store.all() if m.status not in (MissionStatus.completed, MissionStatus.cancelled) for a in m.assigned_agents}
+    return {"stopped":factory.cleanup(exclude=in_use)}
 
 @app.get("/missions/{mission_id}/context")
 def mission_context(mission_id:str):

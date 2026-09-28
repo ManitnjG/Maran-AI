@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 class MissionStatus(str, Enum):
     queued="queued"; planning="planning"; running="running"
     waiting_approval="waiting_approval"; verifying="verifying"
-    completed="completed"; failed="failed"; cancelled="cancelled"
+    blocked="blocked"; completed="completed"; failed="failed"; cancelled="cancelled"
 
 class Verification(str, Enum):
     pending="pending"; verified="verified"; partial="partial"
@@ -23,6 +23,10 @@ class PlanStep(BaseModel):
     agent: str
     requires_approval: bool = False
     status: str = "pending"
+    approved: bool = False
+    output: str | None = None
+    provider: str | None = None
+    error: str | None = None
 
 class Mission(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid4()))

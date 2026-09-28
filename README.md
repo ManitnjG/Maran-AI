@@ -40,3 +40,25 @@ Voice examples:
 - "Create worker Tamil Social Media Specialist"
 
 External providers and business systems are opt-in adapters. API keys and service credentials must be supplied as deployment secrets; they are never committed to this repository.
+
+## Run and connect
+
+```sh
+cd services/orchestrator
+python -m pip install -r requirements.txt
+# Set environment variables from .env.example in your process/deployment.
+# .env files are not loaded automatically.
+python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 1
+```
+
+In the Android app, open **More → Connection** and enter your running server's URL.
+`10.0.2.2` is Android-emulator-only. A physical phone needs a reachable server address.
+Use HTTPS and `MARAN_ACCESS_TOKEN` for a remotely reachable deployment.
+
+For an operator-hosted Ollama model, set `MARAN_OLLAMA_URL=http://127.0.0.1:11434/v1`
+and `MARAN_OLLAMA_MODEL` to a model installed on that host. This option needs no provider
+API key but does require model hosting. Configured cloud providers remain available as
+fallbacks. No model configured means a **blocked** mission, never a fabricated success.
+
+Read [implementation status and remaining work](docs/STATUS.md) before deployment.
+Generated content is a draft; live research and business-system integrations are still pending.

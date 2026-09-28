@@ -24,7 +24,11 @@ class ModelRouter:
         for state in self.providers:
             if not state.enabled: continue
             try:
-                return await state.provider.complete(prompt), state.provider.name
+                output = await state.provider.complete(prompt)
+                if not isinstance(output, str) or not output.strip():
+                    raise ProviderError("empty_provider_response")
+                state.failures = 0
+                return output, state.provider.name
             except QuotaError as exc:
                 state.failures += 1
                 state.enabled = False

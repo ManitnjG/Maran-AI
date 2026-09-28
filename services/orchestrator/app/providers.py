@@ -9,7 +9,8 @@ class OpenCodeZenProvider:
     async def complete(self,prompt:str)->str:
         key=os.getenv("OPENCODE_API_KEY")
         if not key:raise ProviderError("opencode-zen not configured")
-        headers={"Authorization":f"Bearer {key}","Content-Type":"application/json"}
+        headers={"Content-Type":"application/json"}
+        if key: headers["Authorization"]=f"Bearer {key}"
         body={"model":self.model,"messages":[{"role":"user","content":prompt}]}
         try:
             async with httpx.AsyncClient(timeout=90) as client:r=await client.post("https://opencode.ai/zen/v1/chat/completions",headers=headers,json=body)
@@ -17,15 +18,16 @@ class OpenCodeZenProvider:
         if r.status_code in (402,429):raise QuotaError(f"http_{r.status_code}")
         if r.status_code>=400:raise ProviderError(f"http_{r.status_code}")
         try:return r.json()["choices"][0]["message"]["content"]
-        except (KeyError,IndexError,TypeError) as exc:raise ProviderError("invalid_provider_response") from exc
+        except (ValueError,KeyError,IndexError,TypeError) as exc:raise ProviderError("invalid_provider_response") from exc
 
 class OpenAICompatibleProvider:
-    def __init__(self,name:str,base_url:str,key_env:str,model:str):
-        self.name=name;self.base_url=base_url.rstrip("/");self.key_env=key_env;self.model=model
+    def __init__(self,name:str,base_url:str,key_env:str,model:str,requires_key:bool=True):
+        self.name=name;self.base_url=base_url.rstrip("/");self.key_env=key_env;self.model=model;self.requires_key=requires_key
     async def complete(self,prompt:str)->str:
         key=os.getenv(self.key_env)
-        if not key:raise ProviderError(f"{self.name} not configured")
-        headers={"Authorization":f"Bearer {key}","Content-Type":"application/json"}
+        if self.requires_key and not key:raise ProviderError(f"{self.name} not configured")
+        headers={"Content-Type":"application/json"}
+        if key: headers["Authorization"]=f"Bearer {key}"
         body={"model":self.model,"messages":[{"role":"user","content":prompt}]}
         try:
             async with httpx.AsyncClient(timeout=90) as client:
@@ -35,7 +37,7 @@ class OpenAICompatibleProvider:
         if r.status_code in (402,429):raise QuotaError(f"http_{r.status_code}")
         if r.status_code>=400:raise ProviderError(f"http_{r.status_code}")
         try:return r.json()["choices"][0]["message"]["content"]
-        except (KeyError,IndexError,TypeError) as exc:raise ProviderError("invalid_provider_response") from exc
+        except (ValueError,KeyError,IndexError,TypeError) as exc:raise ProviderError("invalid_provider_response") from exc
 
 def configured_router()->ModelRouter:
     providers=[]
@@ -48,4 +50,7 @@ def configured_router()->ModelRouter:
         model=os.getenv(prefix+"_MODEL","").strip()
         key_env=prefix+"_API_KEY"
         if url and model:providers.append(OpenAICompatibleProvider(alias,url,key_env,model))
+    local_url=os.getenv("MARAN_OLLAMA_URL", "").strip()
+    if local_url:
+        providers.append(OpenAICompatibleProvider("ollama",local_url,"MARAN_OLLAMA_API_KEY",os.getenv("MARAN_OLLAMA_MODEL","qwen2.5:3b"),requires_key=False))
     return ModelRouter(providers)
