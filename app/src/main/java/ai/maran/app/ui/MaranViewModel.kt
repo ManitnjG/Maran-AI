@@ -6,12 +6,12 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
-data class MaranUiState(val missions:List<RemoteMission> = emptyList(),val busy:Boolean=false,val error:String?=null)
+data class MaranUiState(val missions:List<RemoteMission> = emptyList(),val workers:List<WorkerDto> = emptyList(),val busy:Boolean=false,val error:String?=null)
 class MaranViewModel:ViewModel(){
  private val _state=MutableStateFlow(MaranUiState()); val state=_state.asStateFlow()
  init { refresh() }
  fun refresh()=viewModelScope.launch {
-  try { _state.value=_state.value.copy(missions=ApiProvider.api.missions(),error=null) }
+  try { _state.value=_state.value.copy(missions=ApiProvider.api.missions(),workers=ApiProvider.api.workers(),error=null) }
   catch(e:Exception){ _state.value=_state.value.copy(error="MARAN server unavailable") }
  }
  fun create(objective:String)=viewModelScope.launch {
@@ -20,6 +20,9 @@ class MaranViewModel:ViewModel(){
   try { ApiProvider.api.createMission(MissionCreate(objective)); refresh() }
   catch(e:Exception){ _state.value=_state.value.copy(error="Could not create mission") }
   finally { _state.value=_state.value.copy(busy=false) }
+ }
+ fun createWorker(name:String,skills:List<String>)=viewModelScope.launch {
+  try { ApiProvider.api.createWorker(WorkerCreate(name,skills)); refresh() } catch(e:Exception){ _state.value=_state.value.copy(error="Worker creation failed") }
  }
  fun decide(id:String,approved:Boolean)=viewModelScope.launch {
   try { ApiProvider.api.approve(id,ApprovalDecision(approved)); refresh() }
