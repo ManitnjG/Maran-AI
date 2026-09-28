@@ -30,3 +30,16 @@ def test_manager_can_stop_entire_workforce():
     body=client.post("/missions",json={"objective":"Research Chennai tourism"}).json()
     stopped=client.post(f'/missions/{body["id"]}/stop',json={"reason":"User cancelled"}).json()
     assert stopped["status"]=="cancelled"
+
+
+def test_low_confidence_voice_requires_confirmation():
+    r=client.post("/voice/interpret",json={"text":"create a quotation worker","confidence":0.55})
+    assert r.json()["action"]=="confirm"
+
+def test_destructive_voice_requires_confirmation():
+    r=client.post("/voice/interpret",json={"text":"stop all workers","confidence":0.99})
+    assert r.json()["action"]=="confirm"
+
+def test_normal_voice_becomes_mission():
+    r=client.post("/voice/interpret",json={"text":"find corporate tour leads","confidence":0.95})
+    assert r.json()["action"]=="mission"
