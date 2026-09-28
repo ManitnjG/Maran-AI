@@ -18,3 +18,15 @@ def test_accounting_waits_for_approval():
     assert body["status"]=="waiting_approval"
     updated=client.post(f'/missions/{body["id"]}/approval',json={"approved":True}).json()
     assert updated["status"]=="running"
+
+
+def test_manager_controls_assignment_and_stop():
+    body=client.post("/missions",json={"objective":"SEO research for travel website"}).json()
+    assert any(e["type"]=="manager_assigned" for e in body["events"])
+    stopped=client.post(f'/missions/{body["id"]}/stop',json={"agent_id":"seo","reason":"No longer needed"}).json()
+    assert any(e["type"]=="agent_stopped" and e["agent"]=="seo" for e in stopped["events"])
+
+def test_manager_can_stop_entire_workforce():
+    body=client.post("/missions",json={"objective":"Research Chennai tourism"}).json()
+    stopped=client.post(f'/missions/{body["id"]}/stop',json={"reason":"User cancelled"}).json()
+    assert stopped["status"]=="cancelled"
