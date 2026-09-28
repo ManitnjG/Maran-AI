@@ -2,6 +2,7 @@ from fastapi import FastAPI, HTTPException
 from .models import Mission, MissionCreate, MissionStatus, ApprovalDecision
 from .planner import local_plan
 from .store import store
+from .executor import execute_local
 
 app=FastAPI(title="MARAN Orchestrator",version="0.1.0")
 
@@ -22,6 +23,13 @@ def create_mission(req:MissionCreate):
     if any(s.requires_approval for s in m.plan):
         m.status=MissionStatus.waiting_approval
         m.events.append({"type":"approval_required"})
+    return store.put(m)
+
+@app.post("/missions/{mission_id}/run",response_model=Mission)
+async def run_mission(mission_id:str):
+    m=store.get(mission_id)
+    if not m: raise HTTPException(404,"Mission not found")
+    m=await execute_local(m)
     return store.put(m)
 
 @app.get("/missions",response_model=list[Mission])
