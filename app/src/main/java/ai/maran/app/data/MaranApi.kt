@@ -6,7 +6,8 @@ import retrofit2.http.*
 
 data class MissionCreate(val objective:String,val workspace_id:String="default")
 data class PlanStep(val id:String,val title:String,val agent:String,val requires_approval:Boolean=false,val status:String="pending")
-data class RemoteMission(val id:String,val objective:String,val status:String,val verification:String,val assigned_agents:List<String>,val plan:List<PlanStep>)
+data class MissionResult(val summary:String?=null,val completed_steps:List<String> = emptyList(),val failed_steps:List<String> = emptyList(),val note:String?=null)
+data class RemoteMission(val id:String,val objective:String,val status:String,val verification:String,val assigned_agents:List<String>,val plan:List<PlanStep>,val result:MissionResult?=null)
 data class ApprovalDecision(val approved:Boolean,val note:String?=null)
 data class WorkerCreate(val name:String,val skills:List<String>,val temporary:Boolean=true)
 data class WorkerDto(val id:String,val name:String,val skills:List<String>,val permissions:List<String>)
