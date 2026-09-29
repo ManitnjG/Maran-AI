@@ -17,6 +17,7 @@ import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
 const val OPENROUTER_NEMOTRON_FREE = "nvidia/nemotron-3.5-lightning:free"
+const val OPENROUTER_FREE_ROUTER = "openrouter/free"
 
 data class AiMessage(val role:String,val content:String)
 
@@ -66,12 +67,11 @@ class OpenRouterClient {
         })
     }
 
-    suspend fun chat(apiKey:String, messages:List<AiMessage>):String {
-        require(apiKey.isNotBlank()) { "Enter your OpenRouter API key once." }
+    private fun request(apiKey:String, model:String, messages:List<AiMessage>):Request {
         val root = JsonObject().apply {
-            addProperty("model", OPENROUTER_NEMOTRON_FREE)
+            addProperty("model", model)
             addProperty("temperature", 0.4)
-            addProperty("max_tokens", 2048)
+            addProperty("max_tokens", 1536)
             add("messages", JsonArray().apply {
                 messages.forEach { m ->
                     add(JsonObject().apply {
@@ -81,24 +81,43 @@ class OpenRouterClient {
                 }
             })
         }
-        val request = Request.Builder()
+        return Request.Builder()
             .url("https://openrouter.ai/api/v1/chat/completions")
             .header("Authorization", "Bearer $apiKey")
             .header("HTTP-Referer", "https://github.com/ManitnjG/Maran-AI")
             .header("X-Title", "MARAN AI")
             .post(root.toString().toRequestBody("application/json".toMediaType()))
             .build()
-        val body = try {
-            execute(request)
-        } catch (e: java.net.SocketTimeoutException) {
-            // Free providers can occasionally stall. Retry once before surfacing an error.
-            execute(request)
-        }
+    }
+
+    private fun textFrom(body:String):String {
         val json = JsonParser.parseString(body).asJsonObject
         val choice = json.getAsJsonArray("choices")?.firstOrNull()?.asJsonObject
             ?: throw IOException("OpenRouter returned no choices.")
         val content = choice.getAsJsonObject("message")?.get("content")
-        if (content == null || content.isJsonNull) throw IOException("Nemotron returned no text.")
+        if (content == null || content.isJsonNull) throw IOException("OpenRouter returned no text.")
         return if (content.isJsonPrimitive) content.asString else content.toString()
+    }
+
+    suspend fun chat(apiKey:String, messages:List<AiMessage>):String {
+        require(apiKey.isNotBlank()) { "Enter your OpenRouter API key once." }
+
+        // Prefer Nemotron. If its free provider is overloaded/stalled, automatically
+        // fall back to OpenRouter's free-model router instead of making the user retry.
+        val primary = request(apiKey, OPENROUTER_NEMOTRON_FREE, messages)
+        try {
+            return textFrom(execute(primary))
+        } catch (e: OpenRouterFailure) {
+            // Authentication/account errors must not be hidden by fallback.
+            if (e.status == 401 || e.status == 402 || e.status == 429) throw e
+        } catch (_: java.net.SocketTimeoutException) {
+            // Continue to the free router below.
+        } catch (_: java.io.InterruptedIOException) {
+            // Continue to the free router below.
+        } catch (_: IOException) {
+            // Upstream/provider failure: continue to free router.
+        }
+
+        return textFrom(execute(request(apiKey, OPENROUTER_FREE_ROUTER, messages)))
     }
 }
