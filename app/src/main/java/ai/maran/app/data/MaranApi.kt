@@ -5,7 +5,8 @@ import retrofit2.converter.gson.GsonConverterFactory
 import retrofit2.http.*
 
 data class Evidence(val sources:List<String> = emptyList(),val retrieved_at:String?=null)
-data class Capabilities(val models:List<String>,val storage:String,val features:Map<String,String>,val note:String)
+data class IntegrationCapability(val status:String,val approval:Boolean=false,val note:String?=null)
+data class Capabilities(val models:List<String>,val storage:String,val features:Map<String,String>,val integrations:Map<String,IntegrationCapability> = emptyMap(),val note:String)
 data class ExportResult(val filename:String,val content:String,val note:String?=null)
 data class SalesVoucherRequest(val company:String,val customer_ledger:String,val sales_ledger:String,val voucher_number:String,val voucher_date:String,val amount:String)
 data class MissionCreate(val objective:String,val workspace_id:String="default")
