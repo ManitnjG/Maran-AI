@@ -24,9 +24,11 @@ class OpenRouterFailure(val status:Int, message:String):IOException(message)
 
 class OpenRouterClient {
     private val http = OkHttpClient.Builder()
-        .connectTimeout(20, TimeUnit.SECONDS)
-        .readTimeout(120, TimeUnit.SECONDS)
-        .callTimeout(150, TimeUnit.SECONDS)
+        .connectTimeout(30, TimeUnit.SECONDS)
+        .readTimeout(180, TimeUnit.SECONDS)
+        .writeTimeout(30, TimeUnit.SECONDS)
+        .callTimeout(210, TimeUnit.SECONDS)
+        .retryOnConnectionFailure(true)
         .build()
 
     private suspend fun execute(request: Request): String = suspendCancellableCoroutine { continuation ->
@@ -69,7 +71,7 @@ class OpenRouterClient {
         val root = JsonObject().apply {
             addProperty("model", OPENROUTER_NEMOTRON_FREE)
             addProperty("temperature", 0.4)
-            addProperty("max_tokens", 4096)
+            addProperty("max_tokens", 2048)
             add("messages", JsonArray().apply {
                 messages.forEach { m ->
                     add(JsonObject().apply {
@@ -86,7 +88,12 @@ class OpenRouterClient {
             .header("X-Title", "MARAN AI")
             .post(root.toString().toRequestBody("application/json".toMediaType()))
             .build()
-        val body = execute(request)
+        val body = try {
+            execute(request)
+        } catch (e: java.net.SocketTimeoutException) {
+            // Free providers can occasionally stall. Retry once before surfacing an error.
+            execute(request)
+        }
         val json = JsonParser.parseString(body).asJsonObject
         val choice = json.getAsJsonArray("choices")?.firstOrNull()?.asJsonObject
             ?: throw IOException("OpenRouter returned no choices.")
