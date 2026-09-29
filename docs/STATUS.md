@@ -1,17 +1,17 @@
-# MARAN 0.3 readiness
+# MARAN readiness — OpenCode brain
 
 ## Implemented
 - Native Android connection setup with Android Keystore encrypted access token, Tamil/English selection, and explicit microphone state.
-- Opt-in recognition of “Maran” / “மாறன்” while the MARAN screen is visible. Stops on screen exit or app background. This is not a low-power background wake engine.
+- Opt-in recognition of “Maran” / “மாறன்” while the Home screen is visible. Stops on screen exit or app background. This is not a low-power background wake engine.
 - Missions, manager assignment, named workers, approvals, retries, stop/cancellation, duplicate-run suppression and saved step outputs.
-- Live public web search and URL reading through the documented Exa MCP service without a key (rate limited). Research workers share one query. Results retain source URLs, retrieval time and published contacts; prospects are not asserted to be interested buyers.
-- Model draft generation with configured-provider fallback. Optional local Ollama needs no model API key.
-- Optional OpenCode CLI free-model adapter with all tools denied and isolated temporary configuration. Disabled by default: a live CLI probe in this environment returned a provider 403 free-tier restriction. No impersonation headers or bypasses are used. This adapter is not currently live-verified.
+- Live public web search and URL reading through the documented Exa MCP service without a key (rate limited). Research workers share one query; AI mission synthesis now requires OpenCode access. The standalone search tool remains independent. Results retain source URLs, retrieval time and published contacts; prospects are not asserted to be interested buyers.
+- OpenCode Zen is the only registered AI provider. It creates validated worker plans, generates all worker drafts (including research synthesis), and reviews outputs. MARAN code retains permissions, approvals and cancellation.
+- Legacy OpenCode CLI and compatible adapters remain as unregistered code; they are not used by the runtime. Free-tier access failed live with HTTP 403. No impersonation or bypass is used.
 - Tally sales accounting-voucher XML export with user-entered amounts and exact ledger names, decimal validation and balanced entries. Manual review/import only; not a GST invoice or a posted transaction.
 - Authenticated connection diagnostics and honest capability statuses.
 - Mission text export and portable JSON backup/restore with no-overwrite validation; Android can save these files. Backups contain mission results only, not worker registry, configuration or credentials.
 - Startup recovers interrupted missions into blocked/retryable status. Restoring a backup never runs work.
-- Free Render deployment blueprint; optional Docker Compose with persistent data volume and Ollama. Production refuses to start without a token of at least 24 characters.
+- Free Render deployment blueprint; optional Docker Compose with persistent mission data volume. Production refuses to start without a token of at least 24 characters.
 - Automatic installable **debug preview** APK release after successful Android CI on main.
 
 ## Verified in this development session
@@ -21,7 +21,7 @@
 
 ## Not production-complete
 - Hosted deployment and a model endpoint still require successful live connection checks. Render free services have ephemeral storage and sleep when idle. Export backups; do not rely on that tier for durable business records.
-- The connected Render plugin was not exposing deployment actions in this session when inspected; the prepared blueprint has not been deployed by this work yet.
+- The backend has not been deployed by this work; Render workspace confirmation remains pending.
 - GST filing, Tally writeback, email/calendar actions and social publishing are not connected. These require account-specific integrations and must not be described as completed by generated text.
 - Technical SEO metrics, social analytics and verified buying intent are not measured.
 - Background wake-word operation, recurring mission scheduling, multi-user isolation and production release signing are not implemented.

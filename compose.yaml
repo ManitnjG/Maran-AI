@@ -1,4 +1,4 @@
-# For a machine capable of hosting a local model. No cloud model API key needed.
+# OpenCode-powered orchestrator with persistent mission storage.
 services:
   api:
     build: ./services/orchestrator
@@ -7,13 +7,8 @@ services:
       MARAN_ACCESS_TOKEN: ${MARAN_ACCESS_TOKEN:?Set MARAN_ACCESS_TOKEN}
       MARAN_ENV: production
       MARAN_STORAGE_MODE: persistent_volume
-      MARAN_OLLAMA_URL: http://ollama:11434/v1
-      MARAN_OLLAMA_MODEL: ${MARAN_OLLAMA_MODEL:-qwen2.5:3b}
+      OPENCODE_API_KEY: ${OPENCODE_API_KEY:-}
+      MARAN_OPENCODE_ZEN_MODEL: ${MARAN_OPENCODE_ZEN_MODEL:-}
     volumes: ["maran-data:/data"]
-    depends_on: [ollama]
-  ollama:
-    image: ollama/ollama:latest
-    volumes: ["ollama-data:/root/.ollama"]
 volumes:
   maran-data:
-  ollama-data:

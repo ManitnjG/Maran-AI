@@ -1,33 +1,39 @@
 # Deployment
 
-## Free Render research preview
+## Free Render preview
 
-The root `render.yaml` deploys the FastAPI service using Docker, generates a server token and enables keyless public search. It does not deploy a language model or enable paid providers.
+The root render.yaml prepares a Docker web service with a generated server token and public search.
+It has not been deployed by this work. Free hosting does not grant model-provider access.
 
-After creation, copy the service HTTPS URL and the generated `MARAN_ACCESS_TOKEN` into Android **More → Connection**. Keep the token out of the repository, APK and screenshots. Run **Test connections**; a missing model result does not prevent public-source research.
+After creation, copy the service HTTPS URL and MARAN_ACCESS_TOKEN into Android More → Connection.
+Configure OPENCODE_API_KEY in server secrets only if you have authorized Zen access.
+A blank MARAN_OPENCODE_ZEN_MODEL selects from currently active zero-cost models; a selected model
+must also be free in the live catalog. Billing, authentication and quota errors stop requests.
 
-Free Render storage is ephemeral and services sleep when idle. This is a preview, not durable production hosting. Use **Export mission backup → Save file** before redeploying. Restore adds missing missions only and rejects overwrites.
+Run Test connections. The standalone search tool can work without a language model.
+Missions now require OpenCode for planning, drafts, research synthesis and review.
 
-## Operator-hosted model with persistent storage
+Free Render storage is ephemeral and services sleep when idle. Export mission backups before
+redeploying. Restore adds missing missions only and rejects overwrites.
 
-On a host with Docker and enough resources for the selected model:
+## Operator-hosted service
 
-```sh
-export MARAN_ACCESS_TOKEN="$(python -c 'import secrets; print(secrets.token_urlsafe(32))')"
-docker compose up -d --build
-docker compose exec ollama ollama pull qwen2.5:3b
-```
+Set MARAN_ACCESS_TOKEN to a long random token, then run docker compose up -d --build.
+The Compose example stores mission data in a named volume. Put HTTPS in front of the API
+before connecting a phone with an access token. Run one Uvicorn worker.
 
-The Compose example uses the official Ollama image (`latest`); pin a tested image digest for production. Put HTTPS in front of the API before connecting a phone with an access token. Ollama is only exposed on the internal Compose network. Both mission and model data use persistent named volumes.
+## OpenCode access
 
-## OpenCode
+MARAN uses the official OpenCode Zen model gateway, not an embedded copy of the OpenCode application.
+Both direct Android chat and backend reasoning check the free-model catalog and stop on access,
+billing or rate-limit failures. Android keys and backend keys are separate; neither is committed.
 
-`services/orchestrator/Dockerfile.opencode` optionally installs OpenCode CLI 1.18.33. Enable `MARAN_OPENCODE_FREE_ENABLED=true` only after a provider check succeeds. The development smoke test was denied by the free provider, despite using its official CLI, so this is not the default deployment. No API-key-free AI availability is promised. OpenCode Zen with a user-supplied key or a local Ollama model can be configured separately.
+Live keyless API and official CLI probes returned HTTP 403 restricting the free tier to OpenCode.
+This integration does not bypass that restriction. A Zen key is optional configuration, not a
+guarantee of free access. Existing CLI/Ollama adapter code is no longer registered by the runtime.
 
-## Validation sources
+## Sources
+- https://opencode.ai/docs/zen/
+- https://models.dev/api.json
 - https://exa.ai/docs/get-started/exa-mcp
-- https://opencode.ai/docs/cli/
-- https://help.tallysolutions.com/sample-xml/
 - https://render.com/docs/free
-- https://render.com/docs/blueprint-spec
-- https://docs.ollama.com/docker

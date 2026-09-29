@@ -7,18 +7,22 @@ from .web_tools import research
 def capabilities():
     models = [p.provider.name for p in configured_router().providers]
     return {
-        "version": "0.3.0", "models": models,
+        "version": "0.5.0", "models": models, "ai_engine": "OpenCode Zen",
+        "brain_stages": ["planning", "worker_assignment", "drafts", "research_synthesis", "review"],
+        "access_tested": False,
         "web_enabled": os.getenv("MARAN_WEB_ENABLED", "true").lower() == "true",
         "authentication_enabled": bool(os.getenv("MARAN_ACCESS_TOKEN")),
         "storage": os.getenv("MARAN_STORAGE_MODE", "local_sqlite"),
         "features": {
             "public_research": "available" if os.getenv("MARAN_WEB_ENABLED", "true").lower() == "true" else "disabled",
-            "draft_generation": "configured" if models else "needs_model",
+            "draft_generation": "needs_authorized_opencode_access",
+            "mission_planning": "opencode",
+            "output_review": "opencode",
             "tally_voucher_export": "available_for_review",
             "tally_writeback": "not_connected", "gst_filing": "not_connected",
             "social_publishing": "not_connected", "wake_word": "not_implemented",
         },
-        "note": "Configured does not mean tested. Run connection checks. Web queries are sent to Exa; keyless usage is rate limited."
+        "note": "All AI reasoning uses OpenCode Zen, free models only. Access is not guaranteed; run connection checks. Web queries are sent to Exa; keyless usage is rate limited."
     }
 
 
@@ -28,7 +32,7 @@ async def diagnostics():
             _, name = await asyncio.wait_for(configured_router().complete("Reply with OK only."), 45)
             return {"ok": True, "message": "Model responded", "provider": name}
         except Exception:
-            return {"ok": False, "message": "No model responded; check server provider configuration"}
+            return {"ok": False, "message": "OpenCode did not respond; check authorized OpenCode access"}
     async def web():
         try:
             result = await asyncio.wait_for(research("Tamil Nadu Tourism official website"), 45)

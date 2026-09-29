@@ -20,7 +20,7 @@ async def lifespan(app):
     if os.getenv("MARAN_ENV") == "production" and len(os.getenv("MARAN_ACCESS_TOKEN", "")) < 24:
         raise RuntimeError("Production requires a MARAN_ACCESS_TOKEN of at least 24 characters")
     for m in store.all():
-        if m.status in (MissionStatus.running, MissionStatus.verifying):
+        if m.status in (MissionStatus.planning, MissionStatus.running, MissionStatus.verifying):
             m.status = MissionStatus.blocked
             for step in m.plan:
                 if step.status == "running": step.status = "pending"
@@ -31,7 +31,7 @@ async def lifespan(app):
     for task in tasks: task.cancel()
     await asyncio.gather(*tasks, return_exceptions=True)
 
-app=FastAPI(title="MARAN Orchestrator",version="0.3.0",lifespan=lifespan)
+app=FastAPI(title="MARAN Orchestrator",version="0.5.0",lifespan=lifespan)
 
 # Run one ASGI worker: active task ownership is process-local.
 active_runs: dict[str, asyncio.Task] = {}

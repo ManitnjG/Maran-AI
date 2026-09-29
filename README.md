@@ -8,7 +8,7 @@ MARAN is a voice-first, general-purpose multi-agent platform. A Chief AI turns a
 - Voice-first: Tamil, English, and mixed-language commands
 - Goal-first UX: users describe outcomes, not agents
 - Multi-agent: planner, specialists, verifier
-- Provider-independent: automatic model fallback with persisted mission state
+- OpenCode Zen is the sole AI engine: planning, assignment, drafting, research synthesis and review; free-only model fallback
 - Human control: explicit approval gates and audit history
 - Modular skills: tourism leads, SEO, social, documents, accounting, coding/OpenCode, and more
 - Security: least-privilege tools; no OTP/CAPTCHA/security bypass
@@ -22,9 +22,9 @@ MARAN is a voice-first, general-purpose multi-agent platform. A Chief AI turns a
 - `.github/workflows/` — CI and Android builds
 
 ## Core UX
-Bottom navigation: **Home · Missions · MARAN · Workforce · More**
+Bottom navigation: **Home · Missions · AI · Workers · More**
 
-The center MARAN action opens voice mode. Every substantial request becomes a Mission with plan, agents, progress, evidence, approvals and results.
+The AI tab offers direct OpenCode chat. Home offers mission and voice controls. Missions use the backend for saved plans, workers, evidence, approvals and results.
 
 ## Status
 See [current implementation status](docs/STATUS.md) for working features, deployment requirements and unfinished integrations.
@@ -39,7 +39,7 @@ Voice examples:
 - "Create worker Hotel Quotation Specialist"
 - "Create worker Tamil Social Media Specialist"
 
-External providers and business systems are opt-in adapters. API keys and service credentials must be supplied as deployment secrets; they are never committed to this repository.
+OpenCode is the only registered reasoning provider. Business-system integrations remain unfinished. API keys and service credentials must be supplied as deployment secrets; they are never committed to this repository.
 
 ## Run and connect
 
@@ -55,10 +55,16 @@ In the Android app, open **More → Connection** and enter your running server's
 `10.0.2.2` is Android-emulator-only. A physical phone needs a reachable server address.
 Use HTTPS and `MARAN_ACCESS_TOKEN` for a remotely reachable deployment.
 
-For an operator-hosted Ollama model, set `MARAN_OLLAMA_URL=http://127.0.0.1:11434/v1`
-and `MARAN_OLLAMA_MODEL` to a model installed on that host. This option needs no provider
-API key but does require model hosting. Configured cloud providers remain available as
-fallbacks. No model configured means a **blocked** mission, never a fabricated success.
+All AI reasoning uses OpenCode Zen. The server checks the active free-model catalog before every
+request and never falls back to paid models or another provider. Optionally set
+`OPENCODE_API_KEY` as a server secret and `MARAN_OPENCODE_ZEN_MODEL` to one currently free model ID.
+A blank model selects up to three free candidates on availability failures only.
+Authentication, billing and rate limits stop further attempts.
+
+**Access blocker:** live keyless requests returned HTTP 403 restricting the free tier to OpenCode.
+Neither an API integration nor the optional legacy CLI adapter guarantees access. Missions remain
+blocked until authorized OpenCode access works. Android chat keys and backend keys are separate.
+The app uses OpenCode's model gateway; it does not embed the full OpenCode CLI runtime.
 
 Read [implementation status and remaining work](docs/STATUS.md) before deployment.
 Generated model content is a draft. Public-source research now works through Exa MCP without a key (rate limited); business-system writebacks are still pending.

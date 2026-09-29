@@ -6,6 +6,7 @@ from .providers import configured_router
 from .router import ProviderError
 from .context import context_vault
 from .web_tools import research, fetch_page, ToolError
+from .opencode_brain import plan_mission, worker_prompt, review_mission
 
 
 async def execute_local(mission: Mission, checkpoint=None) -> Mission:
@@ -20,6 +21,31 @@ async def execute_local(mission: Mission, checkpoint=None) -> Mission:
     def save():
         if checkpoint:
             checkpoint(mission)
+
+    # Existing completed/stopped work is never replanned on retry.
+    fresh = not any(s.status in ("completed", "stopped") for s in mission.plan)
+    if fresh and not any(e.get("type") == "opencode_plan_created" for e in mission.events):
+        mission.status = MissionStatus.planning
+        save()
+        try:
+            await asyncio.wait_for(plan_mission(mission, router), timeout=policy.step_timeout_seconds)
+        except (ProviderError, asyncio.TimeoutError) as exc:
+            mission.status = MissionStatus.blocked
+            mission.verification = Verification.unverified
+            reason = str(exc) or "OpenCode planning timed out."
+            mission.result = {"summary": "OpenCode planning blocked", "note": reason,
+                              "completed_steps": [], "blocked_steps": [s.id for s in mission.plan]}
+            for step in mission.plan:
+                step.status, step.error = "blocked", reason
+            save()
+            return mission
+        if any(s.requires_approval and not s.approved for s in mission.plan):
+            mission.status = MissionStatus.waiting_approval
+            mission.events.append({"type":"approval_required","reason":"Review OpenCode's new plan"})
+            save()
+            return mission
+    mission.status = MissionStatus.running
+    save()
 
     async def guarded(step):
         nonlocal research_task
@@ -40,18 +66,11 @@ async def execute_local(mission: Mission, checkpoint=None) -> Mission:
                         research_task = asyncio.create_task(operation)
                     evidence = await asyncio.wait_for(asyncio.shield(research_task), timeout=policy.step_timeout_seconds)
                     step.evidence = evidence
-                    output = ("Retrieved public sources\n\n" + evidence["text"] + "\n\n" + evidence["note"])
-                    provider = evidence["provider"]
-                    if step.agent == "seo":
-                        output += "\n\nContent research only: technical SEO metrics and ranking positions were not measured."
+                    output, provider = await asyncio.wait_for(
+                        router.complete(worker_prompt(mission, step, evidence)), timeout=policy.step_timeout_seconds)
                 else:
-                    prompt = (
-                        f"You are MARAN's {step.agent} worker. Produce a useful draft for this objective:\n"
-                        f"{mission.objective}\nOnly draft content; do not claim to execute actions, browse, "
-                        "verify live facts, contact people, file GST, or write to Tally. State missing inputs "
-                        "and mark unsupported facts as unverified. Never invent leads or contact details."
-                    )
-                    output, provider = await asyncio.wait_for(router.complete(prompt), timeout=policy.step_timeout_seconds)
+                    output, provider = await asyncio.wait_for(
+                        router.complete(worker_prompt(mission, step)), timeout=policy.step_timeout_seconds)
                 step.output, step.provider, step.error = output, provider, None
                 step.status = "completed"
                 context_vault.put(mission.id, step.id, {"output": output, "provider": provider, "evidence": step.evidence})
@@ -62,7 +81,7 @@ async def execute_local(mission: Mission, checkpoint=None) -> Mission:
                 mission.events.append({"type": "step_blocked", "step_id": step.id, "reason": "web_unavailable"})
             except (ProviderError, asyncio.TimeoutError) as exc:
                 step.status = "blocked"
-                step.error = "No model is available. Configure a provider or a local Ollama server, then retry."
+                step.error = str(exc) or "OpenCode request timed out. Check authorized OpenCode access, then retry."
                 mission.events.append({"type": "step_blocked", "step_id": step.id, "reason": type(exc).__name__})
             finally:
                 save()
@@ -85,8 +104,19 @@ async def execute_local(mission: Mission, checkpoint=None) -> Mission:
     blocked = [s.id for s in mission.plan if s.agent != "verifier" and s.status != "completed"]
     for step in mission.plan:
         if step.agent == "verifier" and step.status != "stopped":
-            step.status = "completed" if completed and not blocked else "blocked"
-            step.output = "Outputs reviewed for presence only. Retrieved sources are attributed, not independently fact-checked. No business transactions were executed."
+            if completed and not blocked:
+                mission.status = MissionStatus.verifying
+                save()
+                try:
+                    step.output, step.provider = await asyncio.wait_for(
+                        review_mission(mission, router), timeout=policy.step_timeout_seconds)
+                    step.status, step.error = "completed", None
+                except (ProviderError, asyncio.TimeoutError) as exc:
+                    step.status, step.error = "blocked", str(exc) or "OpenCode review timed out."
+                    blocked.append(step.id)
+            else:
+                step.status = "blocked"
+                step.error = "Waiting for worker drafts before OpenCode review."
     mission.verification = Verification.partial if any(s.evidence for s in mission.plan) else Verification.unverified
     mission.status = MissionStatus.blocked if blocked else MissionStatus.completed
     mission.result = {

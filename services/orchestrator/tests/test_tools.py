@@ -51,7 +51,7 @@ async def test_web_rate_limit_becomes_tool_error(monkeypatch):
     monkeypatch.setattr('app.web_tools.httpx.AsyncClient',lambda **kw:real(transport=httpx.MockTransport(lambda _:httpx.Response(429)),**kw))
     with pytest.raises(ToolError,match='limit'): await research('test')
 
-def test_research_mission_works_without_model(monkeypatch):
+def test_research_mission_uses_opencode_synthesis(monkeypatch,provider):
     calls=[]
     async def found(query):
         calls.append(query)

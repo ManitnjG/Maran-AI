@@ -8,18 +8,7 @@ from app.router import ModelRouter, ProviderError
 
 client = TestClient(app)
 
-class DraftProvider:
-    name = "test"
-    def __init__(self): self.calls = 0
-    async def complete(self, prompt):
-        self.calls += 1
-        return "Draft with missing facts clearly identified."
-
-@pytest.fixture
-def provider(monkeypatch):
-    p = DraftProvider()
-    monkeypatch.setattr("app.executor.configured_router", lambda: ModelRouter([p]))
-    return p
+from conftest import DraftProvider, brain_response
 
 def test_real_output_persisted_and_run_idempotent(provider):
     m = client.post('/missions', json={'objective': 'Draft a document'}).json()
@@ -112,7 +101,7 @@ async def test_concurrent_run_requests_share_execution(monkeypatch):
             self.calls += 1
             started.set()
             await finish.wait()
-            return 'Draft'
+            return brain_response(prompt)
     p=Slow()
     monkeypatch.setattr('app.executor.configured_router',lambda:ModelRouter([p]))
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app),base_url='http://test') as c:
@@ -124,7 +113,7 @@ async def test_concurrent_run_requests_share_execution(monkeypatch):
         finish.set()
         results=await asyncio.gather(first,second)
         assert all(r.json()['status']=='completed' for r in results)
-        assert p.calls==1
+        assert p.calls==3
 
 @pytest.mark.asyncio
 async def test_keyless_ollama_adapter_omits_authorization(monkeypatch):

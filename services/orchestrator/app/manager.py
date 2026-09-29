@@ -10,7 +10,7 @@ class ManagerAgent:
         allowed=set(agents)
         mission.assigned_agents=agents
         mission.plan=[s for s in plan if s.agent in allowed]
-        mission.events.append({"type":"manager_assigned","manager":self.id,"agents":agents,"max_parallel":policy.max_parallel})
+        mission.events.append({"type":"manager_assigned","strategy":"preliminary_safety_template","manager":self.id,"agents":agents,"max_parallel":policy.max_parallel})
         mission.status=MissionStatus.waiting_approval if any(s.requires_approval for s in mission.plan) else MissionStatus.running
         if mission.status==MissionStatus.waiting_approval: mission.events.append({"type":"approval_required","manager":self.id})
         return mission
