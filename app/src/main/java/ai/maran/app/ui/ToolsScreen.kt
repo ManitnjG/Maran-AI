@@ -48,6 +48,14 @@ import java.time.LocalDate
    Text("Models: "+c.models.ifEmpty{listOf("None configured")}.joinToString())
    Text("Storage: "+c.storage)
    c.features.forEach{(name,status)->Text(name.replace('_',' ')+": "+status.replace('_',' '))}
+   if(c.integrations.isNotEmpty()){
+    Spacer(Modifier.height(6.dp))
+    Text("External actions",style=MaterialTheme.typography.titleMedium)
+    c.integrations.forEach{(name,cap)->
+     val suffix=if(cap.approval)" • approval required" else ""
+     Text(name.replace('_',' ')+": "+cap.status.replace('_',' ')+suffix,style=MaterialTheme.typography.bodySmall)
+    }
+   }
    Text(c.note,style=MaterialTheme.typography.bodySmall)
   }
   Button(onClick={vm.checkConnections()},enabled=!state.busy){Text("Test connections")}
