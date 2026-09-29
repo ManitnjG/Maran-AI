@@ -26,9 +26,9 @@ class OpenRouterFailure(val status:Int, message:String):IOException(message)
 class OpenRouterClient {
     private val http = OkHttpClient.Builder()
         .connectTimeout(30, TimeUnit.SECONDS)
-        .readTimeout(180, TimeUnit.SECONDS)
+        .readTimeout(45, TimeUnit.SECONDS)
         .writeTimeout(30, TimeUnit.SECONDS)
-        .callTimeout(210, TimeUnit.SECONDS)
+        .callTimeout(55, TimeUnit.SECONDS)
         .retryOnConnectionFailure(true)
         .build()
 
@@ -71,7 +71,7 @@ class OpenRouterClient {
         val root = JsonObject().apply {
             addProperty("model", model)
             addProperty("temperature", 0.4)
-            addProperty("max_tokens", 1536)
+            addProperty("max_tokens", 768)
             add("messages", JsonArray().apply {
                 messages.forEach { m ->
                     add(JsonObject().apply {
