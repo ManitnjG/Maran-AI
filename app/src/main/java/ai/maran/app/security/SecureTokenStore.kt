@@ -21,10 +21,10 @@ class SecureTokenStore(context:Context, namespace:String="connection"){
   }.generateKey()
  }
  fun save(value:String){
-  if(value.isBlank()){prefs.edit().clear().apply();return}
+  if(value.isBlank()){check(prefs.edit().clear().commit()) { "Could not remove saved credential" };return}
   val cipher=Cipher.getInstance("AES/GCM/NoPadding").apply{init(Cipher.ENCRYPT_MODE,key())}
   val encrypted=cipher.doFinal(value.toByteArray(Charsets.UTF_8))
-  prefs.edit().putString("iv",Base64.encodeToString(cipher.iv,Base64.NO_WRAP)).putString("value",Base64.encodeToString(encrypted,Base64.NO_WRAP)).apply()
+  prefs.edit().putString("iv",Base64.encodeToString(cipher.iv,Base64.NO_WRAP)).putString("value",Base64.encodeToString(encrypted,Base64.NO_WRAP)).commit().also { check(it) { "Could not persist credential" } }
  }
  fun read():String=try{
   val value=prefs.getString("value",null)

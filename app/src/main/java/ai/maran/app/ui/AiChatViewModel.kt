@@ -20,8 +20,22 @@ class AiChatViewModel(application:Application):AndroidViewModel(application) {
  private var job:Job?=null
  init { refresh() }
  fun select(id:String) { if(!state.value.busy) mutable.update { it.copy(selected=id) } }
- fun saveKey(key:String) { try { keys.save(key.trim());mutable.update { it.copy(keySaved=key.isNotBlank(),error=null) } }
- catch(_:Exception) { mutable.update { it.copy(error="Could not save the key securely.") } } }
+ fun saveKey(key:String):Boolean {
+  if(key.isBlank()) return false // Empty input never deletes an existing key.
+  return try {
+   keys.save(key.trim())
+   check(keys.read()==key.trim())
+   mutable.update { it.copy(keySaved=true,error=null) }
+   true
+  } catch(_:Exception) {
+   mutable.update { it.copy(error="Could not save the key securely. Please try again.") }
+   false
+  }
+ }
+ fun removeKey() {
+  try { keys.save("");mutable.update { it.copy(keySaved=false,error=null) } }
+  catch(_:Exception) { mutable.update { it.copy(error="Could not remove the saved key.") } }
+ }
  fun clear() { if(!state.value.busy) mutable.update { it.copy(messages=emptyList(),error=null,lastModel=null) } }
  fun stop() { job?.cancel() }
  fun refresh() {

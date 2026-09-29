@@ -16,12 +16,22 @@ import androidx.lifecycle.viewmodel.compose.viewModel
  var input by remember { mutableStateOf("") }
  var key by remember { mutableStateOf("") }
  var settings by remember { mutableStateOf(false) }
+ var replaceKey by remember { mutableStateOf(false) }
+ var confirmRemove by remember { mutableStateOf(false) }
  var expanded by remember { mutableStateOf(false) }
+ if(confirmRemove) AlertDialog(
+  onDismissRequest={confirmRemove=false},
+  title={Text("Remove saved key?")},
+  text={Text("You will need to enter a key again to use authenticated OpenCode access.")},
+  confirmButton={TextButton(onClick={vm.removeKey();confirmRemove=false;key=""}){Text("Remove")}},
+  dismissButton={TextButton(onClick={confirmRemove=false}){Text("Keep key")}}
+ )
  Column(Modifier.fillMaxSize().imePadding().verticalScroll(rememberScrollState()).padding(20.dp),
   verticalArrangement=Arrangement.spacedBy(10.dp)) {
   Text("MARAN AI",style=MaterialTheme.typography.headlineLarge)
   Text("OpenCode • Free models • Direct from your phone")
   Text("Internet required. No MARAN server needed. Messages go to OpenCode and its model providers; their access and data policies apply.",style=MaterialTheme.typography.bodySmall)
+  Text(if(state.keySaved) "✓ API key saved • used automatically" else "No API key saved",style=MaterialTheme.typography.bodySmall)
   Box {
    OutlinedButton(onClick={expanded=true},enabled=!state.busy) {
     Text(state.models.find { it.id==state.selected }?.name ?: "Auto • free models only")
@@ -40,12 +50,19 @@ import androidx.lifecycle.viewmodel.compose.viewModel
   }
   if(settings) {
    Text("Some free models only allow the official OpenCode app. An authorized Zen key may be required; it does not guarantee free access. No paid fallback is enabled.")
-   OutlinedTextField(key,{key=it},label={Text("Optional OpenCode Zen key")},visualTransformation=PasswordVisualTransformation(),singleLine=true,modifier=Modifier.fillMaxWidth())
-   Row {
-    Button(onClick={vm.saveKey(key);key=""},enabled=key.isNotBlank()&&!state.busy) { Text("Save key") }
-    TextButton(onClick={vm.saveKey("");key=""},enabled=!state.busy) { Text("Remove key") }
+   if(state.keySaved && !replaceKey) {
+    Text("Your key is saved securely. Reopening the app and clearing chat do not remove it.")
+    Row {
+     OutlinedButton(onClick={replaceKey=true}) { Text("Change key") }
+     TextButton(onClick={confirmRemove=true}) { Text("Remove key") }
+    }
+   } else {
+    OutlinedTextField(key,{key=it},label={Text(if(state.keySaved) "Replacement OpenCode key" else "OpenCode key • enter once")},visualTransformation=PasswordVisualTransformation(),singleLine=true,modifier=Modifier.fillMaxWidth())
+    Button(onClick={if(vm.saveKey(key)){key="";replaceKey=false}},enabled=key.isNotBlank()&&!state.busy) { Text("Save once") }
+    if(state.keySaved) TextButton(onClick={key="";replaceKey=false}) { Text("Cancel") }
    }
-   Text(if(state.keySaved) "Key stored encrypted on this device." else "No key saved.")
+   Text("Saved on this phone only. Uninstalling MARAN or clearing its app data removes the saved key.")
+
   }
   if(state.messages.isEmpty()) Text("Ask in English or தமிழ். This chat writes answers; it does not execute missions or control other apps.")
   state.messages.forEach { message ->
