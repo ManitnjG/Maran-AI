@@ -20,6 +20,6 @@ def test_crm_roundtrip():
     r = client.post('/crm/leads', json={"name":"Test Lead","company":"Example"})
     assert r.status_code == 200
     lead = r.json()
-    r2 = client.post(f"/crm/leads/${lead['id']}/status", json={"status":"contacted"})
+    r2 = client.post(f"/crm/leads/{lead['id']}/status", json={"status":"contacted"})
     assert r2.status_code == 200
     assert r2.json()["status"] == "contacted"
