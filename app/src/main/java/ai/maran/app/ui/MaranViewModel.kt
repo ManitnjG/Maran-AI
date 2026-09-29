@@ -14,7 +14,7 @@ class MaranViewModel(application:Application):AndroidViewModel(application){
  private val prefs=application.getSharedPreferences("connection",0)
  private val tokenStore=ai.maran.app.security.SecureTokenStore(application)
  private var api=ApiProvider.create(prefs.getString("url",BuildConfig.MARAN_API_BASE_URL)!!,tokenStore.read())
- private val _state=MutableStateFlow(MaranUiState(serverUrl=prefs.getString("url",BuildConfig.MARAN_API_BASE_URL)!!))
+ private val _state=MutableStateFlow(MaranUiState(voiceLanguage=prefs.getString("voice_language","en-IN")!!,serverUrl=prefs.getString("url",BuildConfig.MARAN_API_BASE_URL)!!))
  val state=_state.asStateFlow()
  init { refresh() }
  private suspend fun reload(){
@@ -71,6 +71,6 @@ class MaranViewModel(application:Application):AndroidViewModel(application){
  fun restore(text:String)=viewModelScope.launch{action{val result=api.restore(com.google.gson.JsonParser.parseString(text).asJsonObject);reload();_state.value=_state.value.copy(diagnostics="Restored missions: "+result.get("restored").asInt)}}
  fun voucher(request:SalesVoucherRequest)=viewModelScope.launch{action{_state.value=_state.value.copy(export=api.voucher(request))}}
  fun exportMission(id:String)=viewModelScope.launch{action{_state.value=_state.value.copy(export=api.export(id))}}
- fun setLanguage(language:String){_state.value=_state.value.copy(voiceLanguage=language)}
+ fun setLanguage(language:String){prefs.edit().putString("voice_language",language).apply();_state.value=_state.value.copy(voiceLanguage=language)}
  fun voiceUnavailable(){_state.value=_state.value.copy(error="Speech recognition is unavailable. Type your command instead.")}
 }

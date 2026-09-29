@@ -1,53 +1,221 @@
 package ai.maran.app.ui
+
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
-import ai.maran.app.voice.SpeechController
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import ai.maran.app.data.RemoteMission
-private enum class Tab(val label:String,val icon:ImageVector){Home("Home",Icons.Rounded.Home),Missions("Missions",Icons.Rounded.Checklist),Ai("AI",Icons.Rounded.AutoAwesome),Workforce("Workers",Icons.Rounded.Groups)}
-@Composable fun MaranApp(vm:MaranViewModel=viewModel()){
- var tab by remember{mutableStateOf(Tab.Ai)}; val state by vm.state.collectAsState()
- var spoken by remember{mutableStateOf<String?>(null)}
- val speech=rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()){r-> if(r.resultCode==android.app.Activity.RESULT_OK){ SpeechController.result(r.data)?.let{spoken=it;vm.handleVoice(it)} } }
- MaterialTheme(colorScheme=if(androidx.compose.foundation.isSystemInDarkTheme()) darkColorScheme() else lightColorScheme()){
-  Scaffold(bottomBar={NavigationBar{Tab.entries.forEach{item->NavigationBarItem(selected=tab==item,onClick={tab=item},icon={Icon(item.icon,null)},label={Text(item.label)})}}}){pad->
-   Box(Modifier.padding(pad).fillMaxSize()){when(tab){Tab.Ai->AiChatScreen();Tab.Home->HomeScreen(state,vm::create,vm::handleVoice,{try { speech.launch(SpeechController.intent(state.voiceLanguage)) } catch(e:android.content.ActivityNotFoundException) { vm.voiceUnavailable() }});Tab.Missions->MissionScreen(state,vm::decide,vm::run,vm::stop,vm::refresh,vm::exportMission);Tab.Workforce->WorkforceScreen(state.missions,state.workers,vm::stopWorker)}}
-  }
- }
-}
-@Composable private fun HomeScreen(state:MaranUiState,onCreate:(String)->Unit,onCommand:(String)->Unit,onVoice:()->Unit){
- var input by remember{mutableStateOf("")}
- Column(Modifier.fillMaxSize().padding(20.dp),verticalArrangement=Arrangement.spacedBy(16.dp)){
-  Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.CenterVertically){Column{Text("MARAN",style=MaterialTheme.typography.headlineLarge);Text("Your Personal AI Workforce",color=MaterialTheme.colorScheme.onSurfaceVariant)};AssistChip(onClick={},label={Text(if(state.connected)"● Connected" else "○ Offline")})}
-  Card(Modifier.fillMaxWidth()){Column(Modifier.padding(18.dp),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.spacedBy(12.dp)){Text("What should we get done?",style=MaterialTheme.typography.titleLarge);FilledIconButton(onClick=onVoice,modifier=Modifier.size(72.dp)){Icon(Icons.Rounded.Mic,"Talk",Modifier.size(34.dp))};OutlinedTextField(input,{input=it},Modifier.fillMaxWidth(),placeholder={Text("Ask MARAN anything…")},trailingIcon={IconButton(enabled=!state.busy&&input.isNotBlank(),onClick={onCreate(input);input=""}){Icon(Icons.Rounded.Send,"Start mission")}})}}
-  WakeControl(state.voiceLanguage,onCommand)
-  state.error?.let{Text(it,color=MaterialTheme.colorScheme.error)};Text("Continue",style=MaterialTheme.typography.titleMedium)
-  LazyColumn(verticalArrangement=Arrangement.spacedBy(10.dp)){items(state.missions.take(5)){mission->MissionCard(mission,null)}}
- }
-}
-@Composable private fun CommandScreen(state:MaranUiState,onCreate:(String)->Unit,onCommand:(String)->Unit,onVoice:()->Unit,spoken:String?){
- var input by remember{mutableStateOf("")}
- Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.spacedBy(12.dp)){
-  state.error?.let{Text(it,color=MaterialTheme.colorScheme.error)}
-  WakeControl(state.voiceLanguage,onCommand)
-  FilledIconButton(onClick=onVoice,modifier=Modifier.size(110.dp)){Icon(Icons.Rounded.GraphicEq,"MARAN voice",Modifier.size(52.dp))};Spacer(Modifier.height(20.dp));Text("MARAN",style=MaterialTheme.typography.headlineLarge);Text("Tell me the outcome. I’ll organize the workforce.");spoken?.let{Text("Heard: $it",color=MaterialTheme.colorScheme.onSurfaceVariant)};Spacer(Modifier.height(20.dp));OutlinedTextField(input,{input=it},Modifier.fillMaxWidth(),placeholder={Text("Type a mission…")});Spacer(Modifier.height(10.dp));Button(onClick={onCreate(input);input=""},enabled=!state.busy&&input.isNotBlank(),modifier=Modifier.fillMaxWidth()){Text(if(state.busy)"Planning…" else "Start mission")}
- }
-}
-@Composable private fun MissionScreen(state:MaranUiState,onDecision:(String,Boolean)->Unit,onRun:(String)->Unit,onStop:(String)->Unit,onRefresh:()->Unit,onExport:(String)->Unit){Column(Modifier.fillMaxSize().padding(20.dp)){Text("Missions",style=MaterialTheme.typography.headlineLarge);TextButton(onClick=onRefresh){Text("Refresh")};state.error?.let{Text(it,color=MaterialTheme.colorScheme.error)};Spacer(Modifier.height(12.dp));LazyColumn(verticalArrangement=Arrangement.spacedBy(12.dp)){items(state.missions){m->MissionCard(m,if(m.status=="waiting_approval") onDecision else null,onRun,onStop,onExport)}}}}
-@Composable private fun MissionCard(m:RemoteMission,onDecision:((String,Boolean)->Unit)?,onRun:((String)->Unit)?=null,onStop:((String)->Unit)?=null,onExport:((String)->Unit)?=null){Card(Modifier.fillMaxWidth()){Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(7.dp)){Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){Text(m.objective,style=MaterialTheme.typography.titleMedium,modifier=Modifier.weight(1f));AssistChip(onClick={},label={Text(m.status.replace('_',' '))})};Text(m.assigned_agents.joinToString(" · "),color=MaterialTheme.colorScheme.onSurfaceVariant);m.plan.forEach{step->Text("• "+step.title+" — "+step.status,style=MaterialTheme.typography.bodySmall);step.output?.let{androidx.compose.foundation.text.selection.SelectionContainer{Text(it)}};step.evidence?.let{e->e.retrieved_at?.let{Text("Retrieved: "+it,style=MaterialTheme.typography.bodySmall)};e.sources.forEach{url->val handler=androidx.compose.ui.platform.LocalUriHandler.current;TextButton(onClick={try{handler.openUri(url)}catch(_:Exception){}}){Text(url)}}};step.error?.let{Text(it,color=MaterialTheme.colorScheme.error)}};m.result?.summary?.let{Text(it,style=MaterialTheme.typography.bodyMedium)};if(onExport!=null){TextButton(onClick={onExport(m.id)}){Text("Export results")}};m.result?.note?.let{Text(it,style=MaterialTheme.typography.bodySmall)};if(onRun!=null&&m.status in listOf("blocked","failed","running")){TextButton(onClick={onRun(m.id)}){Text("Run / retry")}};if(onStop!=null&&m.status !in listOf("completed","cancelled")){TextButton(onClick={onStop(m.id)}){Text("Stop mission")}};if(m.status=="completed"||m.status=="failed"||m.status=="blocked"){Text("Verification: "+m.verification,color=MaterialTheme.colorScheme.onSurfaceVariant)};if(onDecision!=null){Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){OutlinedButton(onClick={onDecision(m.id,false)}){Text("Reject")};Button(onClick={onDecision(m.id,true)}){Text("Approve")}}}}}}
-@Composable private fun WorkforceScreen(missions:List<RemoteMission>,workers:List<ai.maran.app.data.WorkerDto>,onStop:(String)->Unit){val agents=missions.flatMap{it.assigned_agents}.distinct();Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){Text("Workforce",style=MaterialTheme.typography.headlineLarge);Text("Chief MARAN",style=MaterialTheme.typography.titleLarge);agents.forEach{agent->AssistChip(onClick={},label={Text(agent.replace('_',' ').replaceFirstChar(Char::uppercase))})};if(workers.isNotEmpty()){Text("Dynamic workers",style=MaterialTheme.typography.titleMedium);workers.forEach{w->AssistChip(onClick={onStop(w.id)},label={Text(w.name)},trailingIcon={Icon(Icons.Rounded.Close,"Stop worker")})}}}}
-@Composable private fun SimpleScreen(title:String,body:String,icon:ImageVector){Column(Modifier.fillMaxSize().padding(24.dp),verticalArrangement=Arrangement.spacedBy(14.dp)){Icon(icon,null,Modifier.size(36.dp));Text(title,style=MaterialTheme.typography.headlineLarge);Text(body,color=MaterialTheme.colorScheme.onSurfaceVariant)}}
 
+private enum class Tab(val label:String,val icon:ImageVector) {
+    Assistant("Assistant",Icons.Rounded.Home), Workers("Workers",Icons.Rounded.Groups), Activity("Activity",Icons.Rounded.History)
+}
+@Composable fun MaranApp(vm:MaranViewModel=viewModel(),chat:AiChatViewModel=viewModel()) {
+    var tab by rememberSaveable { mutableStateOf(Tab.Assistant) }
+    var settings by rememberSaveable { mutableStateOf(false) }
+    var selectedId by rememberSaveable { mutableStateOf<String?>(null) }
+    var taskDraft by rememberSaveable { mutableStateOf<String?>(null) }
+    var addWorker by rememberSaveable { mutableStateOf(false) }
+    val state by vm.state.collectAsState()
+    BackHandler(settings || selectedId!=null || tab!=Tab.Assistant) {
+        when { settings->settings=false; selectedId!=null->selectedId=null; else->tab=Tab.Assistant }
+    }
+    MaranTheme {
+        Scaffold(bottomBar={if(!settings) NavigationBar(containerColor=MaterialTheme.colorScheme.background) {
+            Tab.entries.forEach { item->NavigationBarItem(selected=tab==item,onClick={tab=item;selectedId=null},
+                icon={Icon(item.icon,null)},label={Text(item.label)},
+                colors=NavigationBarItemDefaults.colors(indicatorColor=MaterialTheme.colorScheme.primaryContainer,selectedIconColor=MaterialTheme.colorScheme.primary)) }
+        }}) { padding->
+            Box(Modifier.fillMaxSize().padding(padding)) {
+                when {
+                    settings->SettingsScreen(state,vm,chat){settings=false}
+                    selectedId!=null->{val mission=state.missions.find { it.id==selectedId }
+                        if(mission!=null) TaskDetail(mission,state,vm){selectedId=null}
+                        else Column(Modifier.padding(20.dp)){TextButton(onClick={selectedId=null}){Text("Back")};EmptyState("Task unavailable","Refresh activity to load this task.")}}
+                    tab==Tab.Assistant->AiChatScreen(chat,state.voiceLanguage,{settings=true},{taskDraft=it},{tab=Tab.Activity})
+                    tab==Tab.Workers->WorkersScreen(state,vm,{addWorker=true},{settings=true})
+                    else->ActivityScreen(state,vm,{selectedId=it},{taskDraft=""},{settings=true})
+                }
+            }
+        }
+        taskDraft?.let { initial->
+            var objective by rememberSaveable(initial) { mutableStateOf(initial) }
+            AlertDialog(onDismissRequest={taskDraft=null},title={Text("Create a task")},text={Column(verticalArrangement=Arrangement.spacedBy(12.dp)) {
+                Text("Describe the outcome. MARAN will prepare a plan and assign workers.")
+                OutlinedTextField(objective,{objective=it},label={Text("What should we get done?")},minLines=3)
+                if(!state.connected) Text("Connect your task server in Settings first.",color=MaterialTheme.colorScheme.error)
+            }},confirmButton={TextButton(enabled=objective.isNotBlank()&&!state.busy&&state.connected,onClick={vm.create(objective);taskDraft=null;tab=Tab.Activity}){Text("Create task")}},
+                dismissButton={TextButton(onClick={taskDraft=null}){Text("Cancel")}})
+        }
+        if(addWorker) AddWorkerDialog(state.busy,{addWorker=false}){name,skills->vm.createWorker(name,skills);addWorker=false}
+    }
+}
+@Composable private fun PageHeader(title:String,subtitle:String,onSettings:()->Unit) {
+    Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
+        Column(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(6.dp)) {
+            Text(title,style=MaterialTheme.typography.headlineMedium)
+            Text(subtitle,color=MaterialTheme.colorScheme.onSurfaceVariant,style=MaterialTheme.typography.bodyMedium)
+        }
+        IconButton(onClick=onSettings){Icon(Icons.Rounded.AccountCircle,"Profile and settings")}
+    }
+}
+@Composable private fun ConnectionNotice(state:MaranUiState,vm:MaranViewModel,onSettings:()->Unit) {
+    if(!state.connected) PremiumCard {
+        Text("Task server disconnected",style=MaterialTheme.typography.titleSmall)
+        Text("AI chat uses its own connection. Connect your server to load workers and tasks.",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+        Row {TextButton(onClick=onSettings){Text("Settings")};TextButton(onClick={vm.refresh()}){Text("Retry")}}
+    }
+    state.error?.let {Text(it,color=MaterialTheme.colorScheme.error,style=MaterialTheme.typography.bodySmall)}
+    if(state.busy) LinearProgressIndicator(Modifier.fillMaxWidth())
+}
+@Composable private fun WorkersScreen(state:MaranUiState,vm:MaranViewModel,onAdd:()->Unit,onSettings:()->Unit) {
+    var stopId by remember { mutableStateOf<String?>(null) }
+    if(stopId!=null) AlertDialog(onDismissRequest={stopId=null},title={Text("Stop this worker?")},text={Text("This sends a stop request for the selected worker.")},
+        confirmButton={TextButton(onClick={stopId?.let{vm.stopWorker(it)};stopId=null}){Text("Stop worker")}},dismissButton={TextButton(onClick={stopId=null}){Text("Keep")}})
+    LazyColumn(Modifier.fillMaxSize(),contentPadding=PaddingValues(20.dp),verticalArrangement=Arrangement.spacedBy(16.dp)) {
+        item {PageHeader("Your team","MARAN coordinates every task",onSettings)}
+        item {ConnectionNotice(state,vm,onSettings)}
+        item {PremiumCard {
+            Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(12.dp)) {
+                Icon(Icons.Rounded.AutoAwesome,null,tint=MaterialTheme.colorScheme.primary,modifier=Modifier.size(32.dp))
+                Column(Modifier.weight(1f)){Text("MARAN",style=MaterialTheme.typography.titleLarge);Text("Manager",color=MaterialTheme.colorScheme.onSurfaceVariant)}
+                StatusLabel(if(state.connected)"Connected" else "Offline")
+            }
+            Text("Plans tasks and coordinates your workers.",color=MaterialTheme.colorScheme.onSurfaceVariant)
+        }}
+        item {Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){Text("Specialist workers",Modifier.weight(1f),style=MaterialTheme.typography.titleMedium);IconButton(onClick={vm.refresh()}){Icon(Icons.Rounded.Refresh,"Refresh workers")}}}
+        if(state.workers.isEmpty()) item {EmptyState("Build your team","Add a named worker with the skills you need. Workers appear here after the server saves them.")}
+        items(state.workers,key={it.id}) {worker->
+            PremiumCard {
+                Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(12.dp)) {
+                    Surface(shape=MaterialTheme.shapes.medium,color=MaterialTheme.colorScheme.primaryContainer){Text(worker.name.take(1).uppercase(),Modifier.padding(16.dp),style=MaterialTheme.typography.titleMedium)}
+                    Column(Modifier.weight(1f)){Text(worker.name,style=MaterialTheme.typography.titleMedium);Text(worker.skills.joinToString(" · "),color=MaterialTheme.colorScheme.onSurfaceVariant)}
+                    IconButton(onClick={stopId=worker.id},enabled=!state.busy&&state.connected){Icon(Icons.Rounded.StopCircle,"Stop ${worker.name}")}
+                }
+            }
+        }
+        item {OutlinedButton(onClick=onAdd,enabled=state.connected&&!state.busy,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)){Icon(Icons.Rounded.Add,null);Spacer(Modifier.width(8.dp));Text("Add worker")}}
+        item {WakeControl(state.voiceLanguage,vm::handleVoice)}
+    }
+}
+@Composable private fun AddWorkerDialog(busy:Boolean,onDismiss:()->Unit,onCreate:(String,List<String>)->Unit) {
+    var name by rememberSaveable {mutableStateOf("")};var skills by rememberSaveable {mutableStateOf("")}
+    AlertDialog(onDismissRequest=onDismiss,title={Text("Add a worker")},text={Column(verticalArrangement=Arrangement.spacedBy(12.dp)) {
+        OutlinedTextField(name,{name=it},label={Text("Worker name")},singleLine=true)
+        OutlinedTextField(skills,{skills=it},label={Text("Skills, separated by commas")},placeholder={Text("research, tour leads")})
+    }},confirmButton={TextButton(enabled=!busy&&name.isNotBlank()&&skills.split(',').any{it.isNotBlank()},onClick={onCreate(name.trim(),skills.split(',').map{it.trim()}.filter{it.isNotEmpty()})}){Text("Add worker")}},dismissButton={TextButton(onClick=onDismiss){Text("Cancel")}})
+}
+@Composable private fun ActivityScreen(state:MaranUiState,vm:MaranViewModel,onOpen:(String)->Unit,onCreate:()->Unit,onSettings:()->Unit) {
+    LazyColumn(Modifier.fillMaxSize(),contentPadding=PaddingValues(20.dp),verticalArrangement=Arrangement.spacedBy(16.dp)) {
+        item {PageHeader("Activity","Your tasks, progress, and results",onSettings)}
+        item {ConnectionNotice(state,vm,onSettings)}
+        item {Row(horizontalArrangement=Arrangement.spacedBy(10.dp)){Button(onClick=onCreate){Icon(Icons.Rounded.Add,null);Text("New task")};OutlinedButton(onClick={vm.refresh()}){Icon(Icons.Rounded.Refresh,null);Text("Refresh")}}}
+        if(state.missions.isEmpty()) item {EmptyState("A clear start","Create your first task. Its plan and results will appear here.")}
+        items(state.missions,key={it.id}) {m->
+            OutlinedCard(onClick={onOpen(m.id)},modifier=Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(18.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
+                    StatusLabel(m.status)
+                    Text(m.objective,style=MaterialTheme.typography.titleMedium)
+                    Text(m.assigned_agents.joinToString(" · ").ifBlank{"Awaiting assignment"},color=MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("${m.plan.count{it.status=="completed"}} of ${m.plan.size} steps complete",style=MaterialTheme.typography.labelMedium)
+                }
+            }
+        }
+    }
+}
+@Composable private fun TaskDetail(m:RemoteMission,state:MaranUiState,vm:MaranViewModel,onBack:()->Unit) {
+    val uri=LocalUriHandler.current
+    var linkError by remember {mutableStateOf(false)}
+    var confirmStop by remember {mutableStateOf(false)}
+    if(confirmStop) AlertDialog(onDismissRequest={confirmStop=false},title={Text("Cancel this task?")},text={Text("MARAN will request that this task stop.")},
+        confirmButton={TextButton(onClick={vm.stop(m.id);confirmStop=false}){Text("Cancel task")}},dismissButton={TextButton(onClick={confirmStop=false}){Text("Keep running")}})
+    LazyColumn(Modifier.fillMaxSize(),contentPadding=PaddingValues(20.dp),verticalArrangement=Arrangement.spacedBy(16.dp)) {
+        item {Row(verticalAlignment=Alignment.CenterVertically){IconButton(onClick=onBack){Icon(Icons.Rounded.ArrowBack,"Back")};Text("Task detail",Modifier.weight(1f),style=MaterialTheme.typography.titleLarge);IconButton(onClick={vm.refresh()}){Icon(Icons.Rounded.Refresh,"Refresh task")}}}
+        item {Text(m.objective,style=MaterialTheme.typography.headlineMedium)}
+        item {PremiumCard {
+            StatusLabel(m.status)
+            Text("Assigned to "+m.assigned_agents.joinToString(" · ").ifBlank{"MARAN"},color=MaterialTheme.colorScheme.onSurfaceVariant)
+            if(m.plan.isNotEmpty()) {
+                val completed=m.plan.count{it.status=="completed"}
+                LinearProgressIndicator(progress={completed.toFloat()/m.plan.size},modifier=Modifier.fillMaxWidth())
+                Text("$completed of ${m.plan.size} steps complete",style=MaterialTheme.typography.labelMedium)
+            }
+        }}
+        items(m.plan,key={it.id}) {step->PremiumCard {
+            Row(horizontalArrangement=Arrangement.spacedBy(12.dp)) {
+                Icon(if(step.status=="completed")Icons.Rounded.CheckCircle else Icons.Rounded.RadioButtonUnchecked,null,tint=MaterialTheme.colorScheme.primary)
+                Column(Modifier.weight(1f)){Text(step.title,style=MaterialTheme.typography.titleMedium);Text(step.status.replace('_',' '),color=MaterialTheme.colorScheme.onSurfaceVariant)}
+            }
+            step.output?.let {SelectionContainer{Text(it)}}
+            step.error?.let{Text(it,color=MaterialTheme.colorScheme.error)}
+            step.evidence?.let{e->e.retrieved_at?.let{Text("Retrieved: $it",style=MaterialTheme.typography.labelSmall)}
+                e.sources.forEach{url->TextButton(onClick={try{uri.openUri(url)}catch(_:Exception){linkError=true}}){Text(url)}}}
+        }}
+        item {Column(verticalArrangement=Arrangement.spacedBy(10.dp)) {
+            m.result?.summary?.let{SelectionContainer{Text(it)}}
+            m.result?.note?.let{Text(it,color=MaterialTheme.colorScheme.onSurfaceVariant)}
+            Text("Verification: ${m.verification}",style=MaterialTheme.typography.bodySmall)
+            state.error?.let{Text(it,color=MaterialTheme.colorScheme.error)}
+            if(linkError) Text("Could not open this source link.",color=MaterialTheme.colorScheme.error)
+            if(state.busy) LinearProgressIndicator(Modifier.fillMaxWidth())
+            if(m.status=="waiting_approval") Row(horizontalArrangement=Arrangement.spacedBy(12.dp)) {
+                OutlinedButton(enabled=!state.busy,onClick={vm.decide(m.id,false)}){Text("Reject")}
+                Button(enabled=!state.busy,onClick={vm.decide(m.id,true)}){Text("Approve")}
+            }
+            if(m.status in listOf("blocked","failed","running")) OutlinedButton(enabled=!state.busy,onClick={vm.run(m.id)}){Text("Run / retry")}
+            OutlinedButton(enabled=!state.busy,onClick={vm.exportMission(m.id)}){Text("Export results")}
+            state.export?.takeIf{it.filename.contains(m.id)}?.let{SelectionContainer{Text(it.content)}}
+            if(m.status !in listOf("completed","cancelled")) OutlinedButton(enabled=!state.busy,onClick={confirmStop=true},modifier=Modifier.fillMaxWidth()){Text("Cancel task")}
+        }}
+    }
+}
+@Composable private fun SettingsScreen(state:MaranUiState,vm:MaranViewModel,chat:AiChatViewModel,onBack:()->Unit) {
+    val ai by chat.state.collectAsState()
+    var key by remember {mutableStateOf("")}
+    var url by rememberSaveable {mutableStateOf(state.serverUrl)}
+    var token by remember {mutableStateOf("")}
+    var confirmRemove by remember {mutableStateOf(false)}
+    if(confirmRemove) AlertDialog(onDismissRequest={confirmRemove=false},title={Text("Remove AI key?")},text={Text("You will need to save a key again before chatting.")},confirmButton={TextButton(onClick={chat.removeKey();confirmRemove=false}){Text("Remove")}},dismissButton={TextButton(onClick={confirmRemove=false}){Text("Keep")}})
+    Column(Modifier.fillMaxSize().imePadding().verticalScroll(rememberScrollState()).padding(20.dp),verticalArrangement=Arrangement.spacedBy(20.dp)) {
+        Row(verticalAlignment=Alignment.CenterVertically){IconButton(onClick=onBack){Icon(Icons.Rounded.ArrowBack,"Back")};Text("Profile & settings",style=MaterialTheme.typography.headlineSmall)}
+        PremiumCard {
+            Text("AI connection",style=MaterialTheme.typography.titleLarge)
+            StatusLabel(if(ai.keySaved)"Key saved" else "Setup required")
+            Text("OpenRouter • Free model routing",color=MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("Your key is saved securely on this device. Free models have availability and usage limits.",style=MaterialTheme.typography.bodySmall)
+            OutlinedTextField(key,{key=it},label={Text(if(ai.keySaved)"Replacement API key" else "OpenRouter API key")},singleLine=true,visualTransformation=PasswordVisualTransformation(),modifier=Modifier.fillMaxWidth())
+            Row {Button(enabled=key.isNotBlank()&&!ai.busy,onClick={if(chat.saveKey(key))key=""}){Text("Save key")};if(ai.keySaved)TextButton(enabled=!ai.busy,onClick={confirmRemove=true}){Text("Remove key")}}
+            ai.error?.let{Text(it,color=MaterialTheme.colorScheme.error)}
+        }
+        PremiumCard {
+            Text("Task server",style=MaterialTheme.typography.titleLarge)
+            Text("Connect the server that runs your workers and stores tasks.",color=MaterialTheme.colorScheme.onSurfaceVariant)
+            OutlinedTextField(url,{url=it},label={Text("Server URL")},singleLine=true,modifier=Modifier.fillMaxWidth())
+            OutlinedTextField(token,{token=it},label={Text("Access token")},supportingText={Text("Leave blank to keep the token for the same server.")},visualTransformation=PasswordVisualTransformation(),singleLine=true,modifier=Modifier.fillMaxWidth())
+            Button(enabled=!state.busy,onClick={vm.configure(url,token);token=""}){Text("Save connection")}
+            StatusLabel(if(state.connected)"Connected" else "Disconnected")
+            state.error?.let{Text(it,color=MaterialTheme.colorScheme.error)}
+        }
+        PremiumCard {
+            Text("Voice language",style=MaterialTheme.typography.titleLarge)
+            Row(horizontalArrangement=Arrangement.spacedBy(12.dp)) {
+                FilterChip(selected=state.voiceLanguage=="en-IN",onClick={vm.setLanguage("en-IN")},label={Text("English")})
+                FilterChip(selected=state.voiceLanguage=="ta-IN",onClick={vm.setLanguage("ta-IN")},label={Text("தமிழ்")})
+            }
+        }
+    }
+}
