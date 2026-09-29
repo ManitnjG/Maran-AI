@@ -1,4 +1,4 @@
-# MARAN readiness — OpenCode brain
+# MARAN 0.8 readiness — OpenCode brain + external actions
 
 ## Implemented
 - Native Android connection setup with Android Keystore encrypted access token, Tamil/English selection, and explicit microphone state.
@@ -7,7 +7,9 @@
 - Live public web search and URL reading through the documented Exa MCP service without a key (rate limited). Research workers share one query; AI mission synthesis now requires OpenCode access. The standalone search tool remains independent. Results retain source URLs, retrieval time and published contacts; prospects are not asserted to be interested buyers.
 - OpenCode Zen is the only registered AI provider. It creates validated worker plans, generates all worker drafts (including research synthesis), and reviews outputs. MARAN code retains permissions, approvals and cancellation.
 - Legacy OpenCode CLI and compatible adapters remain as unregistered code; they are not used by the runtime. Free-tier access failed live with HTTP 403. No impersonation or bypass is used.
-- Tally sales accounting-voucher XML export with user-entered amounts and exact ledger names, decimal validation and balanced entries. Manual review/import only; not a GST invoice or a posted transaction.
+- Tally sales accounting-voucher XML export with user-entered amounts and exact ledger names, decimal validation and balanced entries. Optional confirmed writeback is available when `TALLY_URL` is configured and reachable.
+- External action connector layer: Gmail send/read/reply, Google Calendar event creation, Google Drive text upload, GitHub file push and workflow dispatch (including APK build workflows), WhatsApp Cloud send, Facebook/Instagram/LinkedIn publishing, Twilio SMS/calls, and a built-in CRM lead store. Consequential actions require explicit confirmation and real account credentials.
+- Capability matrix reports `ready`, `needs_connection`, `webhook_required`, `assisted_only`, or `unsupported` instead of pretending integrations are active.
 - Authenticated connection diagnostics and honest capability statuses.
 - Mission text export and portable JSON backup/restore with no-overwrite validation; Android can save these files. Backups contain mission results only, not worker registry, configuration or credentials.
 - Startup recovers interrupted missions into blocked/retryable status. Restoring a backup never runs work.
@@ -22,7 +24,7 @@
 ## Not production-complete
 - Hosted deployment and a model endpoint still require successful live connection checks. Render free services have ephemeral storage and sleep when idle. Export backups; do not rely on that tier for durable business records.
 - The backend has not been deployed by this work; Render workspace confirmation remains pending.
-- GST filing, Tally writeback, email/calendar actions and social publishing are not connected. These require account-specific integrations and must not be described as completed by generated text.
+- External integrations still require the operator to supply valid account credentials/tokens and provider permissions. YouTube upload and broad social analytics remain connector scaffolds. GST filing/login, payment execution, unrestricted device control, CAPTCHA bypass and OTP interception remain unsupported; GST is assisted preparation only.
 - Technical SEO metrics, social analytics and verified buying intent are not measured.
 - Background wake-word operation, recurring mission scheduling, multi-user isolation and production release signing are not implemented.
 - Phone installation, microphone behavior and Android Keystore behavior require an actual device test. Debug signing can change between CI runners; this is not a guaranteed in-place upgrade path.
