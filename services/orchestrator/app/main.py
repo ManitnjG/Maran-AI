@@ -226,3 +226,179 @@ async def restore_backup(req: BackupImport):
         m.events.append({'type': 'backup_restored', 'note': 'No work executed by restore'})
     store.put_many(req.missions)
     return {'restored': len(req.missions)}
+
+
+# --- External integrations and action endpoints (Maran 0.8) ---
+from .integrations import (
+    IntegrationError, integration_status, gmail_send, gmail_list, gmail_reply,
+    calendar_create, drive_upload_text, github_dispatch, github_put_file,
+    whatsapp_send, facebook_post, instagram_post, linkedin_post,
+    twilio_sms, twilio_call, tally_post_xml,
+)
+from .crm import LeadInput, lead_store
+
+class ConfirmedAction(BaseModel):
+    confirmed: bool = False
+
+class GmailSendRequest(ConfirmedAction):
+    to: str = Field(min_length=3, max_length=320)
+    subject: str = Field(min_length=1, max_length=300)
+    body: str = Field(min_length=1, max_length=100_000)
+
+class GmailReplyRequest(GmailSendRequest):
+    message_id: str = Field(min_length=1, max_length=300)
+    thread_id: str | None = Field(default=None, max_length=300)
+
+class CalendarCreateRequest(ConfirmedAction):
+    summary: str = Field(min_length=1, max_length=300)
+    start: str = Field(min_length=10, max_length=80)
+    end: str = Field(min_length=10, max_length=80)
+    timezone: str = Field(default="Asia/Kolkata", max_length=80)
+    description: str = Field(default="", max_length=10_000)
+
+class DriveUploadRequest(ConfirmedAction):
+    name: str = Field(min_length=1, max_length=240)
+    content: str = Field(min_length=1, max_length=500_000)
+    mime_type: str = Field(default="text/plain", max_length=100)
+
+class GithubDispatchRequest(ConfirmedAction):
+    workflow: str = Field(default="android.yml", max_length=240)
+    ref: str = Field(default="main", max_length=240)
+    inputs: dict[str, str] = Field(default_factory=dict)
+
+class GithubFileRequest(ConfirmedAction):
+    path: str = Field(min_length=1, max_length=500)
+    content: str = Field(max_length=500_000)
+    message: str = Field(min_length=1, max_length=300)
+    branch: str = Field(default="main", max_length=240)
+    sha: str | None = Field(default=None, max_length=100)
+
+class MessageRequest(ConfirmedAction):
+    to: str = Field(min_length=3, max_length=120)
+    body: str = Field(min_length=1, max_length=10_000)
+
+class SocialTextRequest(ConfirmedAction):
+    text: str = Field(min_length=1, max_length=10_000)
+
+class InstagramPostRequest(ConfirmedAction):
+    image_url: str = Field(min_length=8, max_length=2000)
+    caption: str = Field(default="", max_length=2200)
+
+class VoiceCallRequest(ConfirmedAction):
+    to: str = Field(min_length=3, max_length=120)
+    twiml: str = Field(min_length=1, max_length=20_000)
+
+class TallyPostRequest(ConfirmedAction):
+    xml: str = Field(min_length=1, max_length=1_000_000)
+
+class LeadStatusRequest(BaseModel):
+    status: str = Field(min_length=1, max_length=40)
+    notes: str | None = Field(default=None, max_length=4000)
+
+def _require_confirmation(req: ConfirmedAction):
+    if not req.confirmed:
+        raise HTTPException(409, "This external action requires explicit confirmation")
+
+def _integration_error(exc: IntegrationError):
+    raise HTTPException(503, str(exc)) from exc
+
+@app.get('/integrations')
+def integrations_status():
+    return integration_status()
+
+@app.get('/actions/gmail/inbox')
+async def action_gmail_inbox(max_results: int = 10, q: str = ""):
+    try: return await gmail_list(max_results, q)
+    except IntegrationError as exc: _integration_error(exc)
+
+@app.post('/actions/gmail/send')
+async def action_gmail_send(req: GmailSendRequest):
+    _require_confirmation(req)
+    try: return await gmail_send(req.to, req.subject, req.body)
+    except IntegrationError as exc: _integration_error(exc)
+
+@app.post('/actions/gmail/reply')
+async def action_gmail_reply(req: GmailReplyRequest):
+    _require_confirmation(req)
+    try: return await gmail_reply(req.message_id, req.to, req.subject, req.body, req.thread_id)
+    except IntegrationError as exc: _integration_error(exc)
+
+@app.post('/actions/calendar/create')
+async def action_calendar_create(req: CalendarCreateRequest):
+    _require_confirmation(req)
+    try: return await calendar_create(req.summary, req.start, req.end, req.timezone, req.description)
+    except IntegrationError as exc: _integration_error(exc)
+
+@app.post('/actions/drive/upload-text')
+async def action_drive_upload(req: DriveUploadRequest):
+    _require_confirmation(req)
+    try: return await drive_upload_text(req.name, req.content, req.mime_type)
+    except IntegrationError as exc: _integration_error(exc)
+
+@app.post('/actions/github/dispatch')
+async def action_github_dispatch(req: GithubDispatchRequest):
+    _require_confirmation(req)
+    try: return await github_dispatch(req.workflow, req.ref, req.inputs)
+    except IntegrationError as exc: _integration_error(exc)
+
+@app.post('/actions/github/file')
+async def action_github_file(req: GithubFileRequest):
+    _require_confirmation(req)
+    try: return await github_put_file(req.path, req.content, req.message, req.branch, req.sha)
+    except IntegrationError as exc: _integration_error(exc)
+
+@app.post('/actions/whatsapp/send')
+async def action_whatsapp(req: MessageRequest):
+    _require_confirmation(req)
+    try: return await whatsapp_send(req.to, req.body)
+    except IntegrationError as exc: _integration_error(exc)
+
+@app.post('/actions/facebook/post')
+async def action_facebook(req: SocialTextRequest):
+    _require_confirmation(req)
+    try: return await facebook_post(req.text)
+    except IntegrationError as exc: _integration_error(exc)
+
+@app.post('/actions/instagram/post')
+async def action_instagram(req: InstagramPostRequest):
+    _require_confirmation(req)
+    try: return await instagram_post(req.image_url, req.caption)
+    except IntegrationError as exc: _integration_error(exc)
+
+@app.post('/actions/linkedin/post')
+async def action_linkedin(req: SocialTextRequest):
+    _require_confirmation(req)
+    try: return await linkedin_post(req.text)
+    except IntegrationError as exc: _integration_error(exc)
+
+@app.post('/actions/sms/send')
+async def action_sms(req: MessageRequest):
+    _require_confirmation(req)
+    try: return await twilio_sms(req.to, req.body)
+    except IntegrationError as exc: _integration_error(exc)
+
+@app.post('/actions/call')
+async def action_call(req: VoiceCallRequest):
+    _require_confirmation(req)
+    try: return await twilio_call(req.to, req.twiml)
+    except IntegrationError as exc: _integration_error(exc)
+
+@app.post('/actions/tally/post')
+async def action_tally(req: TallyPostRequest):
+    _require_confirmation(req)
+    try: return await tally_post_xml(req.xml)
+    except IntegrationError as exc: _integration_error(exc)
+
+@app.get('/crm/leads')
+def crm_leads(status: str = "", limit: int = 100):
+    return lead_store.list(status, limit)
+
+@app.post('/crm/leads')
+def crm_add_lead(req: LeadInput):
+    return lead_store.add(req)
+
+@app.post('/crm/leads/{lead_id}/status')
+def crm_update_lead(lead_id: str, req: LeadStatusRequest):
+    item = lead_store.update_status(lead_id, req.status, req.notes)
+    if not item: raise HTTPException(404, "Lead not found")
+    return item
