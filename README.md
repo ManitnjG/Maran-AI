@@ -70,3 +70,10 @@ Read [implementation status and remaining work](docs/STATUS.md) before deploymen
 Generated model content is a draft. Public-source research now works through Exa MCP without a key (rate limited); business-system writebacks are still pending.
 
 See [deployment and phone setup](docs/DEPLOYMENT.md). Successful Android CI publishes a debug preview APK on the Releases page.
+
+
+## Maran 0.8 external actions
+
+The orchestrator now exposes an opt-in connector layer for Google Workspace (Gmail, Calendar, Drive), GitHub Actions/code updates, WhatsApp Cloud messaging, Meta/LinkedIn publishing, Twilio SMS/voice, Tally HTTP/XML posting, and a built-in CRM lead store. No credential is bundled in the app. Configure only the services you use through environment variables; `/integrations` reports live configuration readiness.
+
+Consequential actions require `confirmed: true` at the API boundary. GST portal automation, payment execution, CAPTCHA bypass, OTP interception and unrestricted device control are intentionally not implemented.
