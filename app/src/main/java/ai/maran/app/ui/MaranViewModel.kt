@@ -24,7 +24,7 @@ class MaranViewModel(application:Application):AndroidViewModel(application){
  private suspend fun action(block:suspend ()->Unit){
   _state.value=_state.value.copy(busy=true,error=null)
   try{block()}catch(e:CancellationException){throw e}
-  catch(e:Exception){_state.value=_state.value.copy(error=if(e is retrofit2.HttpException && e.code()==401) "Enter your server access token in More." else "Request failed. Check the server connection and refresh; your saved mission may still be running.")}
+  catch(e:Exception){_state.value=_state.value.copy(error=if(e is retrofit2.HttpException && e.code()==401) "Server authorization failed. Check the configured MARAN server." else "Request failed. Check the server connection and refresh; your saved mission may still be running.")}
   finally{_state.value=_state.value.copy(busy=false)}
  }
  fun configure(url:String,token:String){
@@ -42,7 +42,7 @@ class MaranViewModel(application:Application):AndroidViewModel(application){
   }catch(e:Exception){_state.value=_state.value.copy(error="Enter a valid server URL. Access tokens require HTTPS.")}
  }
  fun refresh()=viewModelScope.launch {
-  try{reload()}catch(e:CancellationException){throw e}catch(e:Exception){_state.value=_state.value.copy(connected=false,error="Cannot connect. Set your server URL and access token in More.")}
+  try{reload()}catch(e:CancellationException){throw e}catch(e:Exception){_state.value=_state.value.copy(connected=false,error="Cannot connect to the configured MARAN server.")}
  }
  fun create(objective:String)=viewModelScope.launch {
   if(objective.isBlank() || _state.value.busy)return@launch
