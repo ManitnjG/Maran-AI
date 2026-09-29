@@ -25,10 +25,10 @@ class OpenRouterFailure(val status:Int, message:String):IOException(message)
 
 class OpenRouterClient {
     private val http = OkHttpClient.Builder()
-        .connectTimeout(30, TimeUnit.SECONDS)
-        .readTimeout(45, TimeUnit.SECONDS)
-        .writeTimeout(30, TimeUnit.SECONDS)
-        .callTimeout(55, TimeUnit.SECONDS)
+        .connectTimeout(8, TimeUnit.SECONDS)
+        .readTimeout(20, TimeUnit.SECONDS)
+        .writeTimeout(10, TimeUnit.SECONDS)
+        .callTimeout(22, TimeUnit.SECONDS)
         .retryOnConnectionFailure(true)
         .build()
 
@@ -71,7 +71,7 @@ class OpenRouterClient {
         val root = JsonObject().apply {
             addProperty("model", model)
             addProperty("temperature", 0.4)
-            addProperty("max_tokens", 768)
+            addProperty("max_tokens", 512)
             add("messages", JsonArray().apply {
                 messages.forEach { m ->
                     add(JsonObject().apply {
@@ -104,18 +104,17 @@ class OpenRouterClient {
 
         // Prefer Nemotron. If its free provider is overloaded/stalled, automatically
         // fall back to OpenRouter's free-model router instead of making the user retry.
+        // Fast path: do not wait a long time for an overloaded free provider.
+        // Nemotron gets a short chance; MARAN then switches to the free router.
         val primary = request(apiKey, OPENROUTER_NEMOTRON_FREE, messages)
         try {
-            return textFrom(execute(primary))
+            return kotlinx.coroutines.withTimeout(9_000L) { textFrom(execute(primary)) }
         } catch (e: OpenRouterFailure) {
-            // Authentication/account errors must not be hidden by fallback.
-            if (e.status == 401 || e.status == 402 || e.status == 429) throw e
-        } catch (_: java.net.SocketTimeoutException) {
-            // Continue to the free router below.
-        } catch (_: java.io.InterruptedIOException) {
-            // Continue to the free router below.
+            if (e.status == 401 || e.status == 402) throw e
+        } catch (_: kotlinx.coroutines.TimeoutCancellationException) {
+            // Provider was too slow: switch immediately.
         } catch (_: IOException) {
-            // Upstream/provider failure: continue to free router.
+            // Provider/network failure: switch immediately.
         }
 
         return textFrom(execute(request(apiKey, OPENROUTER_FREE_ROUTER, messages)))
