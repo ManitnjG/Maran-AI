@@ -54,10 +54,10 @@ jobs:
         with:
           tag_name: preview-${{ github.run_number }}
           target_commitish: ${{ github.sha }}
-          name: MARAN 0.5 preview ${{ github.run_number }}
+          name: MARAN 0.9 preview ${{ github.run_number }}
           prerelease: true
           files: app/build/outputs/apk/debug/app-debug.apk
           body: |
             Development APK for testing. This is debug-signed, not a production-signed release.
-            The AI tab uses Puter.js keyless AI. No OpenCode or model API key is required for the direct AI chat.
+            Premium Assistant, Workers, and Activity interface. Streaming AI chat uses a saved OpenRouter API key. Worker tasks require a configured MARAN server.
             Back up saved work before updating: debug signing keys can differ between CI builds.
