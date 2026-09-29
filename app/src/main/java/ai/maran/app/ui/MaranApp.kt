@@ -17,22 +17,23 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import ai.maran.app.data.RemoteMission
-private enum class Tab(val label:String,val icon:ImageVector){Home("Home",Icons.Rounded.Home),Missions("Missions",Icons.Rounded.Checklist),Maran("MARAN",Icons.Rounded.GraphicEq),Workforce("Workforce",Icons.Rounded.Groups),More("More",Icons.Rounded.GridView)}
+private enum class Tab(val label:String,val icon:ImageVector){Home("Home",Icons.Rounded.Home),Missions("Missions",Icons.Rounded.Checklist),Ai("AI",Icons.Rounded.AutoAwesome),Workforce("Workers",Icons.Rounded.Groups),More("More",Icons.Rounded.GridView)}
 @Composable fun MaranApp(vm:MaranViewModel=viewModel()){
- var tab by remember{mutableStateOf(Tab.Home)}; val state by vm.state.collectAsState()
+ var tab by remember{mutableStateOf(Tab.Ai)}; val state by vm.state.collectAsState()
  var spoken by remember{mutableStateOf<String?>(null)}
  val speech=rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()){r-> if(r.resultCode==android.app.Activity.RESULT_OK){ SpeechController.result(r.data)?.let{spoken=it;vm.handleVoice(it)} } }
  MaterialTheme(colorScheme=if(androidx.compose.foundation.isSystemInDarkTheme()) darkColorScheme() else lightColorScheme()){
   Scaffold(bottomBar={NavigationBar{Tab.entries.forEach{item->NavigationBarItem(selected=tab==item,onClick={tab=item},icon={Icon(item.icon,null)},label={Text(item.label)})}}}){pad->
-   Box(Modifier.padding(pad).fillMaxSize()){when(tab){Tab.Home->HomeScreen(state,vm::create,{try { speech.launch(SpeechController.intent(state.voiceLanguage)) } catch(e:android.content.ActivityNotFoundException) { vm.voiceUnavailable() }});Tab.Missions->MissionScreen(state,vm::decide,vm::run,vm::stop,vm::refresh,{id->vm.exportMission(id);tab=Tab.More});Tab.Maran->CommandScreen(state,vm::create,vm::handleVoice,{try { speech.launch(SpeechController.intent(state.voiceLanguage)) } catch(e:android.content.ActivityNotFoundException) { vm.voiceUnavailable() }},spoken);Tab.Workforce->WorkforceScreen(state.missions,state.workers,vm::stopWorker);Tab.More->ConnectionScreen(state,vm)}}
+   Box(Modifier.padding(pad).fillMaxSize()){when(tab){Tab.Ai->AiChatScreen();Tab.Home->HomeScreen(state,vm::create,vm::handleVoice,{try { speech.launch(SpeechController.intent(state.voiceLanguage)) } catch(e:android.content.ActivityNotFoundException) { vm.voiceUnavailable() }});Tab.Missions->MissionScreen(state,vm::decide,vm::run,vm::stop,vm::refresh,{id->vm.exportMission(id);tab=Tab.More});Tab.Workforce->WorkforceScreen(state.missions,state.workers,vm::stopWorker);Tab.More->ConnectionScreen(state,vm)}}
   }
  }
 }
-@Composable private fun HomeScreen(state:MaranUiState,onCreate:(String)->Unit,onVoice:()->Unit){
+@Composable private fun HomeScreen(state:MaranUiState,onCreate:(String)->Unit,onCommand:(String)->Unit,onVoice:()->Unit){
  var input by remember{mutableStateOf("")}
  Column(Modifier.fillMaxSize().padding(20.dp),verticalArrangement=Arrangement.spacedBy(16.dp)){
   Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.CenterVertically){Column{Text("MARAN",style=MaterialTheme.typography.headlineLarge);Text("Your Personal AI Workforce",color=MaterialTheme.colorScheme.onSurfaceVariant)};AssistChip(onClick={},label={Text(if(state.connected)"● Connected" else "○ Offline")})}
   Card(Modifier.fillMaxWidth()){Column(Modifier.padding(18.dp),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.spacedBy(12.dp)){Text("What should we get done?",style=MaterialTheme.typography.titleLarge);FilledIconButton(onClick=onVoice,modifier=Modifier.size(72.dp)){Icon(Icons.Rounded.Mic,"Talk",Modifier.size(34.dp))};OutlinedTextField(input,{input=it},Modifier.fillMaxWidth(),placeholder={Text("Ask MARAN anything…")},trailingIcon={IconButton(enabled=!state.busy&&input.isNotBlank(),onClick={onCreate(input);input=""}){Icon(Icons.Rounded.Send,"Start mission")}})}}
+  WakeControl(state.voiceLanguage,onCommand)
   state.error?.let{Text(it,color=MaterialTheme.colorScheme.error)};Text("Continue",style=MaterialTheme.typography.titleMedium)
   LazyColumn(verticalArrangement=Arrangement.spacedBy(10.dp)){items(state.missions.take(5)){mission->MissionCard(mission,null)}}
  }

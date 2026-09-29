@@ -10,9 +10,9 @@ import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
 
-class SecureTokenStore(context:Context){
- private val prefs=context.getSharedPreferences("protected_connection",Context.MODE_PRIVATE)
- private val alias="maran_connection_token"
+class SecureTokenStore(context:Context, namespace:String="connection"){
+ private val prefs=context.getSharedPreferences("protected_$namespace",Context.MODE_PRIVATE)
+ private val alias="maran_${namespace}_token"
  private fun key():SecretKey{
   val store=KeyStore.getInstance("AndroidKeyStore").apply{load(null)}
   (store.getKey(alias,null) as? SecretKey)?.let{return it}

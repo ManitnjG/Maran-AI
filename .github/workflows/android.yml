@@ -39,9 +39,9 @@ jobs:
           MARAN_API_BASE_URL: ${{ secrets.MARAN_API_BASE_URL }}
         run: |
           if [ -n "$MARAN_API_BASE_URL" ]; then
-            gradle :app:assembleDebug --stacktrace "-PMARAN_API_BASE_URL=$MARAN_API_BASE_URL"
+            gradle :app:testDebugUnitTest :app:assembleDebug --stacktrace "-PMARAN_API_BASE_URL=$MARAN_API_BASE_URL"
           else
-            gradle :app:assembleDebug --stacktrace
+            gradle :app:testDebugUnitTest :app:assembleDebug --stacktrace
           fi
       - uses: actions/upload-artifact@v4
         with:
@@ -54,10 +54,10 @@ jobs:
         with:
           tag_name: preview-${{ github.run_number }}
           target_commitish: ${{ github.sha }}
-          name: MARAN 0.3 preview ${{ github.run_number }}
+          name: MARAN 0.4 preview ${{ github.run_number }}
           prerelease: true
           files: app/build/outputs/apk/debug/app-debug.apk
           body: |
             Development APK for testing. This is debug-signed, not a production-signed release.
-            In More, enter your HTTPS MARAN server URL and access token. Public research can run without a model key; AI drafts need a working model.
+            The AI tab connects directly to OpenCode with a live free-model picker. Provider access restrictions still apply. Missions require a MARAN server configured in More.
             Back up saved work before updating: debug signing keys can differ between CI builds.

@@ -29,3 +29,10 @@
 
 ## Runtime limits
 Run one Uvicorn worker. Active cancellation is process-local. SQLite persists on a persistent volume, but free Render's filesystem does not survive replacement. Each source/model request is bounded; free remote providers can reject or rate-limit requests. No unlimited-service guarantee is made.
+
+## Android 0.4 direct AI chat
+
+The default AI tab connects directly to OpenCode Zen, independent of the MARAN backend.
+It discovers active zero-cost models from models.dev on every send, supports chat completions, Responses and Anthropic Messages, and excludes deprecated/unknown/paid pricing. Auto mode tries at most three free models on availability errors only; authentication, billing and rate limits stop immediately. Optional Zen keys are encrypted separately using Android Keystore. Chat is memory-only, text-only and sends the last ten messages as context.
+
+This integration does not guarantee keyless access: the live official CLI previously returned HTTP 403 restricting the free tier to OpenCode. No access restriction is bypassed. Provider pricing/catalog information can change, and a catalog listing is not an access entitlement. Backend missions remain a separate feature requiring a deployed server.

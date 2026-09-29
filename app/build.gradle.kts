@@ -4,7 +4,7 @@ plugins {
 android {
  namespace="ai.maran.app"; compileSdk=35
  defaultConfig {
-  applicationId="ai.maran.app"; minSdk=26; targetSdk=35; versionCode=3; versionName="0.3.0"
+  applicationId="ai.maran.app"; minSdk=26; targetSdk=35; versionCode=4; versionName="0.4.0"
   val apiUrl=(project.findProperty("MARAN_API_BASE_URL") as String?) ?: "http://10.0.2.2:8000/"
   buildConfigField("String","MARAN_API_BASE_URL","\"${apiUrl}\"")
  }
@@ -25,5 +25,6 @@ dependencies {
  implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
  implementation("com.squareup.retrofit2:retrofit:2.11.0")
  implementation("com.squareup.retrofit2:converter-gson:2.11.0")
+ testImplementation("junit:junit:4.13.2")
  debugImplementation("androidx.compose.ui:ui-tooling")
 }
