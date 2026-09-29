@@ -13,13 +13,14 @@ data class MaranUiState(val missions:List<RemoteMission> = emptyList(),val worke
 class MaranViewModel(application:Application):AndroidViewModel(application){
  private val prefs=application.getSharedPreferences("connection",0)
  private val tokenStore=ai.maran.app.security.SecureTokenStore(application)
+ private val localWorkers=LocalWorkerStore(application)
  private var api=ApiProvider.create(prefs.getString("url",BuildConfig.MARAN_API_BASE_URL)!!,tokenStore.read())
- private val _state=MutableStateFlow(MaranUiState(serverUrl=prefs.getString("url",BuildConfig.MARAN_API_BASE_URL)!!))
+ private val _state=MutableStateFlow(MaranUiState(serverUrl=prefs.getString("url",BuildConfig.MARAN_API_BASE_URL)!!,workers=localWorkers.list()))
  val state=_state.asStateFlow()
  init { refresh() }
  private suspend fun reload(){
-  val missions=api.missions(); val workers=api.workers()
-  _state.value=_state.value.copy(missions=missions,workers=workers,connected=true,capabilities=api.capabilities())
+  val missions=api.missions()
+  _state.value=_state.value.copy(missions=missions,workers=localWorkers.list(),connected=true,capabilities=api.capabilities(),error=null)
  }
  private suspend fun action(block:suspend ()->Unit){
   _state.value=_state.value.copy(busy=true,error=null)
@@ -42,7 +43,7 @@ class MaranViewModel(application:Application):AndroidViewModel(application){
   }catch(e:Exception){_state.value=_state.value.copy(error="Enter a valid server URL. Access tokens require HTTPS.")}
  }
  fun refresh()=viewModelScope.launch {
-  try{reload()}catch(e:CancellationException){throw e}catch(e:Exception){_state.value=_state.value.copy(connected=false,error="Cannot connect to the configured MARAN server.")}
+  try{reload()}catch(e:CancellationException){throw e}catch(e:Exception){_state.value=_state.value.copy(connected=false,workers=localWorkers.list(),error=null)}
  }
  fun create(objective:String)=viewModelScope.launch {
   if(objective.isBlank() || _state.value.busy)return@launch
@@ -60,8 +61,15 @@ class MaranViewModel(application:Application):AndroidViewModel(application){
    else->_state.value=_state.value.copy(error="Please review and type this command: ${r.heard?:text}")
   }}
  }
- fun stopWorker(id:String)=viewModelScope.launch{action{api.stopWorker(id);reload()}}
- fun createWorker(name:String,skills:List<String>)=viewModelScope.launch{action{api.createWorker(WorkerCreate(name,skills));reload()}}
+ fun stopWorker(id:String){
+  localWorkers.remove(id)
+  _state.value=_state.value.copy(workers=localWorkers.list(),error=null)
+ }
+ fun createWorker(name:String,skills:List<String>){
+  if(name.isBlank())return
+  localWorkers.add(name,skills)
+  _state.value=_state.value.copy(workers=localWorkers.list(),error=null)
+ }
  fun decide(id:String,approved:Boolean)=viewModelScope.launch{action{api.approve(id,ApprovalDecision(approved));reload()}}
  fun run(id:String)=viewModelScope.launch{action{api.runMission(id);reload()}}
  fun stop(id:String)=viewModelScope.launch{action{api.stopMission(id);reload()}}
