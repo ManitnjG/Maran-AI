@@ -4,6 +4,8 @@ import com.google.gson.JsonArray
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import okhttp3.Call
 import okhttp3.Callback
 import okhttp3.MediaType.Companion.toMediaType
@@ -67,11 +69,12 @@ class OpenRouterClient {
         })
     }
 
-    private fun request(apiKey:String, model:String, messages:List<AiMessage>):Request {
+    private fun request(apiKey:String, model:String, messages:List<AiMessage>, stream:Boolean=false):Request {
         val root = JsonObject().apply {
             addProperty("model", model)
             addProperty("temperature", 0.4)
             addProperty("max_tokens", 512)
+            addProperty("stream", stream)
             add("messages", JsonArray().apply {
                 messages.forEach { m ->
                     add(JsonObject().apply {
@@ -119,4 +122,45 @@ class OpenRouterClient {
 
         return textFrom(execute(request(apiKey, OPENROUTER_FREE_ROUTER, messages)))
     }
+    suspend fun streamChat(
+        apiKey:String,
+        messages:List<AiMessage>,
+        onDelta:(String)->Unit
+    ):String = withContext(Dispatchers.IO) {
+        require(apiKey.isNotBlank()) { "Enter your OpenRouter API key once." }
+        val req = request(apiKey, OPENROUTER_FREE_ROUTER, messages, stream = true)
+        val call = http.newCall(req)
+        val response = call.execute()
+        response.use { res ->
+            if (!res.isSuccessful) {
+                val body = res.body?.string().orEmpty()
+                val parsed = runCatching {
+                    JsonParser.parseString(body).asJsonObject
+                        .getAsJsonObject("error")?.get("message")?.asString
+                }.getOrNull()
+                throw OpenRouterFailure(res.code, parsed ?: "OpenRouter request failed (HTTP ${res.code}).")
+            }
+            val source = res.body?.source() ?: throw IOException("OpenRouter returned an empty stream.")
+            val answer = StringBuilder()
+            while (!source.exhausted()) {
+                val line = source.readUtf8Line() ?: break
+                if (!line.startsWith("data:")) continue
+                val data = line.removePrefix("data:").trim()
+                if (data == "[DONE]") break
+                val delta = runCatching {
+                    JsonParser.parseString(data).asJsonObject
+                        .getAsJsonArray("choices")?.firstOrNull()?.asJsonObject
+                        ?.getAsJsonObject("delta")?.get("content")
+                        ?.takeUnless { it.isJsonNull }?.asString.orEmpty()
+                }.getOrDefault("")
+                if (delta.isNotEmpty()) {
+                    answer.append(delta)
+                    withContext(Dispatchers.Main.immediate) { onDelta(delta) }
+                }
+            }
+            if (answer.isEmpty()) throw IOException("OpenRouter returned no streamed text.")
+            answer.toString()
+        }
+    }
+
 }
