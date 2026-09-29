@@ -3,8 +3,6 @@ package ai.maran.app.data
 import com.google.gson.*
 import kotlinx.coroutines.suspendCancellableCoroutine
 import okhttp3.*
-import okhttp3.MediaType.Companion.toMediaType
-import okhttp3.RequestBody.Companion.toRequestBody
 import java.io.IOException
 import java.util.concurrent.TimeUnit
 import kotlin.coroutines.resume
@@ -52,10 +50,10 @@ class OpenCodeClient {
    override fun onResponse(call:Call,response:Response) {
     try {
      val result=response.use {
-      if(!it.isSuccessful) throw OpenCodeFailure(it.code)
-      val source=it.body?.source() ?: throw IOException("Empty provider response")
+      if(!it.isSuccessful) throw OpenCodeFailure(it.code())
+      val source=it.body()?.source() ?: throw IOException("Empty provider response")
       source.request(8L*1024*1024+1)
-      if(source.buffer.size>8L*1024*1024) throw IOException("Provider response too large")
+      if(source.buffer().size()>8L*1024*1024) throw IOException("Provider response too large")
       source.readUtf8()
      }
      if(!continuation.isCancelled) continuation.resume(result)
@@ -75,7 +73,7 @@ class OpenCodeClient {
    } else { add("messages",messages);addProperty("max_tokens",4096) }
   }
   val builder=Request.Builder().url("https://opencode.ai/zen/v1/"+model.protocol)
-   .post(payload.toString().toRequestBody("application/json".toMediaType()))
+   .post(RequestBody.create(MediaType.parse("application/json"),payload.toString()))
   if(key.isNotBlank()) builder.header("Authorization","Bearer $key")
   if(model.protocol=="messages") {
    builder.header("anthropic-version","2023-06-01")
