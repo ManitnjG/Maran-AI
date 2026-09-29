@@ -74,7 +74,7 @@ private enum class Tab(val label:String,val icon:ImageVector){Home("Home",Icons.
      }
      AssistChip(onClick={},label={Text("Ready")})
     }
-    Text("Plans tasks and coordinates your workers locally. Remote server sync is optional.",color=MaterialTheme.colorScheme.onSurfaceVariant)
+    Text("Worker profiles stay available on this device. Remote mission execution can sync when a server is available.",color=MaterialTheme.colorScheme.onSurfaceVariant)
    }
   }
 
@@ -91,7 +91,7 @@ private enum class Tab(val label:String,val icon:ImageVector){Home("Home",Icons.
      OutlinedTextField(skills,{skills=it},label={Text("Skills, comma separated")},modifier=Modifier.fillMaxWidth(),singleLine=true)
      Button(
       onClick={
-       val parsed=skills.split(",").map(String::trim).filter(String::isNotBlank)
+       val parsed=skills.split(",").map { it.trim() }.filter { it.isNotBlank() }
        onCreate(name,parsed);name="";skills="";showAdd=false
       },
       enabled=name.isNotBlank(),
