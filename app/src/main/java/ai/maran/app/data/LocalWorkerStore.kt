@@ -37,7 +37,7 @@ class LocalWorkerStore(context:Context) {
         val worker=WorkerDto(
             id="local-"+UUID.randomUUID().toString(),
             name=name.trim(),
-            skills=skills.map(String::trim).filter(String::isNotBlank).distinct(),
+            skills=skills.map { it.trim() }.filter { it.isNotBlank() }.distinct(),
             permissions=listOf("local_ai")
         )
         save(list()+worker)
