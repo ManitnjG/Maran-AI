@@ -91,8 +91,14 @@ class AiChatViewModel(application:Application):AndroidViewModel(application) {
             } catch(e:OpenRouterFailure) {
                 if(e.status==401) mutable.update { it.copy(keySaved=false,error=e.message) }
                 else mutable.update { it.copy(error=e.message) }
+            } catch(e:java.net.SocketTimeoutException) {
+                mutable.update { it.copy(error="The free AI provider is busy and timed out after retrying. Please tap Send again in a moment.") }
             } catch(e:Exception) {
-                mutable.update { it.copy(error=e.message ?: "Could not reach OpenRouter.") }
+                val message = e.message.orEmpty()
+                val friendly = if (message.contains("timeout", ignoreCase=true) || message.contains("timed out", ignoreCase=true))
+                    "The free AI provider is busy and timed out after retrying. Please tap Send again in a moment."
+                else message.ifBlank { "Could not reach OpenRouter. Check your internet connection and try again." }
+                mutable.update { it.copy(error=friendly) }
             } finally {
                 mutable.update { it.copy(busy=false) }
             }
