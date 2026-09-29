@@ -55,7 +55,7 @@ private enum class Tab(val label:String,val icon:ImageVector) {
         taskDraft?.let { initial->
             var objective by rememberSaveable(initial) { mutableStateOf(initial) }
             AlertDialog(onDismissRequest={taskDraft=null},title={Text("Create a task")},text={Column(verticalArrangement=Arrangement.spacedBy(12.dp)) {
-                Text("Describe the outcome. MARAN will prepare a plan and assign workers.")
+                Text(if(state.deviceMode)"Create an AI draft using your saved OpenRouter key. Live research and external actions need a task server." else "Describe the outcome. MARAN will prepare a plan and assign workers.")
                 OutlinedTextField(objective,{objective=it},label={Text("What should we get done?")},minLines=3)
                 if(!state.connected) Text("Connect your task server in Settings first.",color=MaterialTheme.colorScheme.error)
             }},confirmButton={TextButton(enabled=objective.isNotBlank()&&!state.busy&&state.connected,onClick={vm.create(objective);taskDraft=null;tab=Tab.Activity}){Text("Create task")}},
@@ -74,10 +74,11 @@ private enum class Tab(val label:String,val icon:ImageVector) {
     }
 }
 @Composable private fun ConnectionNotice(state:MaranUiState,vm:MaranViewModel,onSettings:()->Unit) {
-    if(!state.connected) PremiumCard {
+    if(state.deviceMode) { Text("Device workspace • AI drafts",color=MaterialTheme.colorScheme.primary,style=MaterialTheme.typography.labelMedium) }
+    else if(!state.connected) PremiumCard {
         Text("Task server disconnected",style=MaterialTheme.typography.titleSmall)
         Text("AI chat uses its own connection. Connect your server to load workers and tasks.",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
-        Row {TextButton(onClick=onSettings){Text("Settings")};TextButton(onClick={vm.refresh()}){Text("Retry")}}
+        Row {TextButton(onClick=onSettings){Text("Settings")};TextButton(onClick={vm.refresh()}){Text("Retry")};TextButton(onClick=vm::useDeviceMode){Text("Use device")}}
     }
     state.error?.let {Text(it,color=MaterialTheme.colorScheme.error,style=MaterialTheme.typography.bodySmall)}
     if(state.busy) LinearProgressIndicator(Modifier.fillMaxWidth())
@@ -93,12 +94,12 @@ private enum class Tab(val label:String,val icon:ImageVector) {
             Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(12.dp)) {
                 Icon(Icons.Rounded.AutoAwesome,null,tint=MaterialTheme.colorScheme.primary,modifier=Modifier.size(32.dp))
                 Column(Modifier.weight(1f)){Text("MARAN",style=MaterialTheme.typography.titleLarge);Text("Manager",color=MaterialTheme.colorScheme.onSurfaceVariant)}
-                StatusLabel(if(state.connected)"Connected" else "Offline")
+                StatusLabel(if(state.deviceMode)"On device" else if(state.connected)"Connected" else "Offline")
             }
-            Text("Plans tasks and coordinates your workers.",color=MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(if(state.deviceMode)"Assigns AI draft tasks to your saved workers. Internet and an OpenRouter key are needed to generate drafts." else "Plans tasks and coordinates your workers.",color=MaterialTheme.colorScheme.onSurfaceVariant)
         }}
         item {Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){Text("Specialist workers",Modifier.weight(1f),style=MaterialTheme.typography.titleMedium);IconButton(onClick={vm.refresh()}){Icon(Icons.Rounded.Refresh,"Refresh workers")}}}
-        if(state.workers.isEmpty()) item {EmptyState("Build your team","Add a named worker with the skills you need. Workers appear here after the server saves them.")}
+        if(state.workers.isEmpty()) item {EmptyState("Build your team","Add a named worker with the skills you need.")}
         items(state.workers,key={it.id}) {worker->
             PremiumCard {
                 Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(12.dp)) {
@@ -109,7 +110,7 @@ private enum class Tab(val label:String,val icon:ImageVector) {
             }
         }
         item {OutlinedButton(onClick=onAdd,enabled=state.connected&&!state.busy,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)){Icon(Icons.Rounded.Add,null);Spacer(Modifier.width(8.dp));Text("Add worker")}}
-        item {WakeControl(state.voiceLanguage,vm::handleVoice)}
+        if(!state.deviceMode) item {WakeControl(state.voiceLanguage,vm::handleVoice)}
     }
 }
 @Composable private fun AddWorkerDialog(busy:Boolean,onDismiss:()->Unit,onCreate:(String,List<String>)->Unit) {
@@ -176,7 +177,7 @@ private enum class Tab(val label:String,val icon:ImageVector) {
                 OutlinedButton(enabled=!state.busy,onClick={vm.decide(m.id,false)}){Text("Reject")}
                 Button(enabled=!state.busy,onClick={vm.decide(m.id,true)}){Text("Approve")}
             }
-            if(m.status in listOf("blocked","failed","running")) OutlinedButton(enabled=!state.busy,onClick={vm.run(m.id)}){Text("Run / retry")}
+            if(m.status in listOf("blocked","failed","interrupted")) OutlinedButton(enabled=!state.busy,onClick={vm.run(m.id)}){Text("Run / retry")}
             OutlinedButton(enabled=!state.busy,onClick={vm.exportMission(m.id)}){Text("Export results")}
             state.export?.takeIf{it.filename.contains(m.id)}?.let{SelectionContainer{Text(it.content)}}
             if(m.status !in listOf("completed","cancelled")) OutlinedButton(enabled=!state.busy,onClick={confirmStop=true},modifier=Modifier.fillMaxWidth()){Text("Cancel task")}
@@ -202,12 +203,14 @@ private enum class Tab(val label:String,val icon:ImageVector) {
             ai.error?.let{Text(it,color=MaterialTheme.colorScheme.error)}
         }
         PremiumCard {
-            Text("Task server",style=MaterialTheme.typography.titleLarge)
+            Text("Task workspace",style=MaterialTheme.typography.titleLarge)
+            Text("Device mode saves workers and AI drafts on this phone. Server mode enables the tools supported by your server.",style=MaterialTheme.typography.bodySmall)
+            FilterChip(selected=state.deviceMode,onClick=vm::useDeviceMode,label={Text("Use device mode — no server")})
             Text("Connect the server that runs your workers and stores tasks.",color=MaterialTheme.colorScheme.onSurfaceVariant)
             OutlinedTextField(url,{url=it},label={Text("Server URL")},singleLine=true,modifier=Modifier.fillMaxWidth())
             OutlinedTextField(token,{token=it},label={Text("Access token")},supportingText={Text("Leave blank to keep the token for the same server.")},visualTransformation=PasswordVisualTransformation(),singleLine=true,modifier=Modifier.fillMaxWidth())
             Button(enabled=!state.busy,onClick={vm.configure(url,token);token=""}){Text("Save connection")}
-            StatusLabel(if(state.connected)"Connected" else "Disconnected")
+            StatusLabel(if(state.deviceMode)"Device mode" else if(state.connected)"Connected" else "Disconnected")
             state.error?.let{Text(it,color=MaterialTheme.colorScheme.error)}
         }
         PremiumCard {
