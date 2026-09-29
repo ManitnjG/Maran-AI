@@ -24,7 +24,7 @@ private enum class Tab(val label:String,val icon:ImageVector){Home("Home",Icons.
  val speech=rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()){r-> if(r.resultCode==android.app.Activity.RESULT_OK){ SpeechController.result(r.data)?.let{spoken=it;vm.handleVoice(it)} } }
  MaterialTheme(colorScheme=if(androidx.compose.foundation.isSystemInDarkTheme()) darkColorScheme() else lightColorScheme()){
   Scaffold(bottomBar={NavigationBar{Tab.entries.forEach{item->NavigationBarItem(selected=tab==item,onClick={tab=item},icon={Icon(item.icon,null)},label={Text(item.label)})}}}){pad->
-   Box(Modifier.padding(pad).fillMaxSize()){when(tab){Tab.Ai->AiChatScreen();Tab.Home->HomeScreen(state,vm::create,vm::handleVoice,{try { speech.launch(SpeechController.intent(state.voiceLanguage)) } catch(e:android.content.ActivityNotFoundException) { vm.voiceUnavailable() }});Tab.Missions->MissionScreen(state,vm::decide,vm::run,vm::stop,vm::refresh,vm::exportMission);Tab.Workforce->WorkforceScreen(state.missions,state.workers,vm::stopWorker)}}
+   Box(Modifier.padding(pad).fillMaxSize()){when(tab){Tab.Ai->AiChatScreen();Tab.Home->HomeScreen(state,vm::create,vm::handleVoice,{try { speech.launch(SpeechController.intent(state.voiceLanguage)) } catch(e:android.content.ActivityNotFoundException) { vm.voiceUnavailable() }});Tab.Missions->MissionScreen(state,vm::decide,vm::run,vm::stop,vm::refresh,vm::exportMission);Tab.Workforce->WorkforceScreen(state.missions,state.workers,vm::stopWorker,vm::createWorker)}}
   }
  }
 }
@@ -48,6 +48,80 @@ private enum class Tab(val label:String,val icon:ImageVector){Home("Home",Icons.
 }
 @Composable private fun MissionScreen(state:MaranUiState,onDecision:(String,Boolean)->Unit,onRun:(String)->Unit,onStop:(String)->Unit,onRefresh:()->Unit,onExport:(String)->Unit){Column(Modifier.fillMaxSize().padding(20.dp)){Text("Missions",style=MaterialTheme.typography.headlineLarge);TextButton(onClick=onRefresh){Text("Refresh")};state.error?.let{Text(it,color=MaterialTheme.colorScheme.error)};Spacer(Modifier.height(12.dp));LazyColumn(verticalArrangement=Arrangement.spacedBy(12.dp)){items(state.missions){m->MissionCard(m,if(m.status=="waiting_approval") onDecision else null,onRun,onStop,onExport)}}}}
 @Composable private fun MissionCard(m:RemoteMission,onDecision:((String,Boolean)->Unit)?,onRun:((String)->Unit)?=null,onStop:((String)->Unit)?=null,onExport:((String)->Unit)?=null){Card(Modifier.fillMaxWidth()){Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(7.dp)){Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){Text(m.objective,style=MaterialTheme.typography.titleMedium,modifier=Modifier.weight(1f));AssistChip(onClick={},label={Text(m.status.replace('_',' '))})};Text(m.assigned_agents.joinToString(" · "),color=MaterialTheme.colorScheme.onSurfaceVariant);m.plan.forEach{step->Text("• "+step.title+" — "+step.status,style=MaterialTheme.typography.bodySmall);step.output?.let{androidx.compose.foundation.text.selection.SelectionContainer{Text(it)}};step.evidence?.let{e->e.retrieved_at?.let{Text("Retrieved: "+it,style=MaterialTheme.typography.bodySmall)};e.sources.forEach{url->val handler=androidx.compose.ui.platform.LocalUriHandler.current;TextButton(onClick={try{handler.openUri(url)}catch(_:Exception){}}){Text(url)}}};step.error?.let{Text(it,color=MaterialTheme.colorScheme.error)}};m.result?.summary?.let{Text(it,style=MaterialTheme.typography.bodyMedium)};if(onExport!=null){TextButton(onClick={onExport(m.id)}){Text("Export results")}};m.result?.note?.let{Text(it,style=MaterialTheme.typography.bodySmall)};if(onRun!=null&&m.status in listOf("blocked","failed","running")){TextButton(onClick={onRun(m.id)}){Text("Run / retry")}};if(onStop!=null&&m.status !in listOf("completed","cancelled")){TextButton(onClick={onStop(m.id)}){Text("Stop mission")}};if(m.status=="completed"||m.status=="failed"||m.status=="blocked"){Text("Verification: "+m.verification,color=MaterialTheme.colorScheme.onSurfaceVariant)};if(onDecision!=null){Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){OutlinedButton(onClick={onDecision(m.id,false)}){Text("Reject")};Button(onClick={onDecision(m.id,true)}){Text("Approve")}}}}}}
-@Composable private fun WorkforceScreen(missions:List<RemoteMission>,workers:List<ai.maran.app.data.WorkerDto>,onStop:(String)->Unit){val agents=missions.flatMap{it.assigned_agents}.distinct();Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){Text("Workforce",style=MaterialTheme.typography.headlineLarge);Text("Chief MARAN",style=MaterialTheme.typography.titleLarge);agents.forEach{agent->AssistChip(onClick={},label={Text(agent.replace('_',' ').replaceFirstChar(Char::uppercase))})};if(workers.isNotEmpty()){Text("Dynamic workers",style=MaterialTheme.typography.titleMedium);workers.forEach{w->AssistChip(onClick={onStop(w.id)},label={Text(w.name)},trailingIcon={Icon(Icons.Rounded.Close,"Stop worker")})}}}}
+@Composable private fun WorkforceScreen(
+ missions:List<RemoteMission>,
+ workers:List<ai.maran.app.data.WorkerDto>,
+ onStop:(String)->Unit,
+ onCreate:(String,List<String>)->Unit
+){
+ var showAdd by remember{mutableStateOf(false)}
+ var name by remember{mutableStateOf("")}
+ var skills by remember{mutableStateOf("")}
+ val agents=missions.flatMap{it.assigned_agents}.distinct()
+ Column(
+  Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp),
+  verticalArrangement=Arrangement.spacedBy(14.dp)
+ ){
+  Text("Your team",style=MaterialTheme.typography.headlineLarge)
+  Text("MARAN coordinates every task",color=MaterialTheme.colorScheme.onSurfaceVariant)
+
+  Card(Modifier.fillMaxWidth()){
+   Column(Modifier.padding(18.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){
+    Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.CenterVertically){
+     Column{
+      Text("MARAN",style=MaterialTheme.typography.titleLarge)
+      Text("Manager",color=MaterialTheme.colorScheme.onSurfaceVariant)
+     }
+     AssistChip(onClick={},label={Text("Ready")})
+    }
+    Text("Plans tasks and coordinates your workers locally. Remote server sync is optional.",color=MaterialTheme.colorScheme.onSurfaceVariant)
+   }
+  }
+
+  Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.CenterVertically){
+   Text("Specialist workers",style=MaterialTheme.typography.titleLarge)
+   FilledTonalIconButton(onClick={showAdd=!showAdd}){Icon(if(showAdd) Icons.Rounded.Close else Icons.Rounded.PersonAdd,"Add worker")}
+  }
+
+  if(showAdd){
+   Card(Modifier.fillMaxWidth()){
+    Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){
+     Text("Add worker",style=MaterialTheme.typography.titleMedium)
+     OutlinedTextField(name,{name=it},label={Text("Worker name")},modifier=Modifier.fillMaxWidth(),singleLine=true)
+     OutlinedTextField(skills,{skills=it},label={Text("Skills, comma separated")},modifier=Modifier.fillMaxWidth(),singleLine=true)
+     Button(
+      onClick={
+       val parsed=skills.split(",").map(String::trim).filter(String::isNotBlank)
+       onCreate(name,parsed);name="";skills="";showAdd=false
+      },
+      enabled=name.isNotBlank(),
+      modifier=Modifier.fillMaxWidth()
+     ){Text("Add to team")}
+    }
+   }
+  }
+
+  workers.forEach{w->
+   Card(Modifier.fillMaxWidth()){
+    Row(
+     Modifier.fillMaxWidth().padding(16.dp),
+     horizontalArrangement=Arrangement.SpaceBetween,
+     verticalAlignment=Alignment.CenterVertically
+    ){
+     Column(Modifier.weight(1f)){
+      Text(w.name,style=MaterialTheme.typography.titleMedium)
+      Text(w.skills.joinToString(" • ").ifBlank{"General assistant"},color=MaterialTheme.colorScheme.onSurfaceVariant)
+     }
+     IconButton(onClick={onStop(w.id)}){Icon(Icons.Rounded.DeleteOutline,"Remove worker")}
+    }
+   }
+  }
+
+  if(agents.isNotEmpty()){
+   Text("Active mission agents",style=MaterialTheme.typography.titleMedium)
+   agents.forEach{agent->AssistChip(onClick={},label={Text(agent.replace('_',' ').replaceFirstChar(Char::uppercase))})}
+  }
+ }
+}
 @Composable private fun SimpleScreen(title:String,body:String,icon:ImageVector){Column(Modifier.fillMaxSize().padding(24.dp),verticalArrangement=Arrangement.spacedBy(14.dp)){Icon(icon,null,Modifier.size(36.dp));Text(title,style=MaterialTheme.typography.headlineLarge);Text(body,color=MaterialTheme.colorScheme.onSurfaceVariant)}}
 
