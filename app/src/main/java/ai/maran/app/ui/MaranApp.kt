@@ -17,14 +17,14 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import ai.maran.app.data.RemoteMission
-private enum class Tab(val label:String,val icon:ImageVector){Home("Home",Icons.Rounded.Home),Missions("Missions",Icons.Rounded.Checklist),Ai("AI",Icons.Rounded.AutoAwesome),Workforce("Workers",Icons.Rounded.Groups),More("More",Icons.Rounded.GridView)}
+private enum class Tab(val label:String,val icon:ImageVector){Home("Home",Icons.Rounded.Home),Missions("Missions",Icons.Rounded.Checklist),Ai("AI",Icons.Rounded.AutoAwesome),Workforce("Workers",Icons.Rounded.Groups)}
 @Composable fun MaranApp(vm:MaranViewModel=viewModel()){
  var tab by remember{mutableStateOf(Tab.Ai)}; val state by vm.state.collectAsState()
  var spoken by remember{mutableStateOf<String?>(null)}
  val speech=rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()){r-> if(r.resultCode==android.app.Activity.RESULT_OK){ SpeechController.result(r.data)?.let{spoken=it;vm.handleVoice(it)} } }
  MaterialTheme(colorScheme=if(androidx.compose.foundation.isSystemInDarkTheme()) darkColorScheme() else lightColorScheme()){
   Scaffold(bottomBar={NavigationBar{Tab.entries.forEach{item->NavigationBarItem(selected=tab==item,onClick={tab=item},icon={Icon(item.icon,null)},label={Text(item.label)})}}}){pad->
-   Box(Modifier.padding(pad).fillMaxSize()){when(tab){Tab.Ai->AiChatScreen();Tab.Home->HomeScreen(state,vm::create,vm::handleVoice,{try { speech.launch(SpeechController.intent(state.voiceLanguage)) } catch(e:android.content.ActivityNotFoundException) { vm.voiceUnavailable() }});Tab.Missions->MissionScreen(state,vm::decide,vm::run,vm::stop,vm::refresh,{id->vm.exportMission(id);tab=Tab.More});Tab.Workforce->WorkforceScreen(state.missions,state.workers,vm::stopWorker);Tab.More->ConnectionScreen(state,vm)}}
+   Box(Modifier.padding(pad).fillMaxSize()){when(tab){Tab.Ai->AiChatScreen();Tab.Home->HomeScreen(state,vm::create,vm::handleVoice,{try { speech.launch(SpeechController.intent(state.voiceLanguage)) } catch(e:android.content.ActivityNotFoundException) { vm.voiceUnavailable() }});Tab.Missions->MissionScreen(state,vm::decide,vm::run,vm::stop,vm::refresh,vm::exportMission);Tab.Workforce->WorkforceScreen(state.missions,state.workers,vm::stopWorker)}}
   }
  }
 }
@@ -51,23 +51,3 @@ private enum class Tab(val label:String,val icon:ImageVector){Home("Home",Icons.
 @Composable private fun WorkforceScreen(missions:List<RemoteMission>,workers:List<ai.maran.app.data.WorkerDto>,onStop:(String)->Unit){val agents=missions.flatMap{it.assigned_agents}.distinct();Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){Text("Workforce",style=MaterialTheme.typography.headlineLarge);Text("Chief MARAN",style=MaterialTheme.typography.titleLarge);agents.forEach{agent->AssistChip(onClick={},label={Text(agent.replace('_',' ').replaceFirstChar(Char::uppercase))})};if(workers.isNotEmpty()){Text("Dynamic workers",style=MaterialTheme.typography.titleMedium);workers.forEach{w->AssistChip(onClick={onStop(w.id)},label={Text(w.name)},trailingIcon={Icon(Icons.Rounded.Close,"Stop worker")})}}}}
 @Composable private fun SimpleScreen(title:String,body:String,icon:ImageVector){Column(Modifier.fillMaxSize().padding(24.dp),verticalArrangement=Arrangement.spacedBy(14.dp)){Icon(icon,null,Modifier.size(36.dp));Text(title,style=MaterialTheme.typography.headlineLarge);Text(body,color=MaterialTheme.colorScheme.onSurfaceVariant)}}
 
-@Composable private fun ConnectionScreen(state:MaranUiState,vm:MaranViewModel){
- var url by remember(state.serverUrl){mutableStateOf(state.serverUrl)}
- var token by remember{mutableStateOf("")}
- Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp),verticalArrangement=Arrangement.spacedBy(14.dp)){
-  Text("Connection",style=MaterialTheme.typography.headlineLarge)
-  Text("Enter your running MARAN server address. The emulator address does not connect from a physical phone.")
-  OutlinedTextField(url,{url=it},label={Text("Server URL")},modifier=Modifier.fillMaxWidth(),singleLine=true)
-  OutlinedTextField(token,{token=it},label={Text("Server access token")},modifier=Modifier.fillMaxWidth(),singleLine=true,visualTransformation=androidx.compose.ui.text.input.PasswordVisualTransformation())
-  Text("The token is encrypted with Android Keystore on this device. Leave blank to keep the saved token for this server.")
-  Button(onClick={vm.configure(url,token)}){Text("Save and connect")}
-  OutlinedButton(onClick={vm.clearToken()}){Text("Clear saved token")}
-  state.error?.let{Text(it,color=MaterialTheme.colorScheme.error)}
-  Text("Voice language",style=MaterialTheme.typography.titleLarge)
-  Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){
-   FilterChip(selected=state.voiceLanguage=="en-IN",onClick={vm.setLanguage("en-IN")},label={Text("English")})
-   FilterChip(selected=state.voiceLanguage=="ta-IN",onClick={vm.setLanguage("ta-IN")},label={Text("தமிழ்")})
-  }
-  ToolsScreen(state,vm)
- }
-}
