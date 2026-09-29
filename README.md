@@ -8,7 +8,7 @@ MARAN is a voice-first, general-purpose multi-agent platform. A Chief AI turns a
 - Voice-first: Tamil, English, and mixed-language commands
 - Goal-first UX: users describe outcomes, not agents
 - Multi-agent: planner, specialists, verifier
-- OpenCode Zen is the sole AI engine: planning, assignment, drafting, research synthesis and review; free-only model fallback
+- Keyless AI chat: Puter.js client-side AI with no developer model API key
 - Human control: explicit approval gates and audit history
 - Modular skills: tourism leads, SEO, social, documents, accounting, coding/OpenCode, and more
 - Security: least-privilege tools; no OTP/CAPTCHA/security bypass
@@ -22,9 +22,9 @@ MARAN is a voice-first, general-purpose multi-agent platform. A Chief AI turns a
 - `.github/workflows/` — CI and Android builds
 
 ## Core UX
-Bottom navigation: **Home · Missions · AI · Workers · More**
+Bottom navigation: **Home · Missions · AI · Workers**
 
-The AI tab offers direct OpenCode chat. Home offers mission and voice controls. Missions use the backend for saved plans, workers, evidence, approvals and results.
+The AI tab uses Puter.js with a keyless client-side model. No model API key is entered or stored in MARAN.
 
 ## Status
 See [current implementation status](docs/STATUS.md) for working features, deployment requirements and unfinished integrations.
