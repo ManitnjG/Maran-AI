@@ -4,7 +4,7 @@ plugins {
 android {
  namespace="ai.maran.app"; compileSdk=35
  defaultConfig {
-  applicationId="ai.maran.app"; minSdk=26; targetSdk=35; versionCode=5; versionName="0.5.0"
+  applicationId="ai.maran.app"; minSdk=26; targetSdk=35; versionCode=6; versionName="0.6.0"
   val apiUrl=(project.findProperty("MARAN_API_BASE_URL") as String?) ?: "http://10.0.2.2:8000/"
   buildConfigField("String","MARAN_API_BASE_URL","\"${apiUrl}\"")
  }
