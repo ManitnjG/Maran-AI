@@ -1,7 +1,7 @@
 # MARAN UI/UX Specification
 
 ## Navigation
-Home · Missions · MARAN · Workforce · More
+Home · Missions · MARAN · Workforce
 
 ## Home
 - MARAN identity and connection state
