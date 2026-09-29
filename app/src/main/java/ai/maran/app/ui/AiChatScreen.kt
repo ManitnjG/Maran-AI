@@ -33,9 +33,9 @@ fun AiChatScreen(vm:AiChatViewModel=viewModel()) {
         verticalArrangement=Arrangement.spacedBy(10.dp)
     ) {
         Text("MARAN AI",style=MaterialTheme.typography.headlineLarge)
-        AssistChip(onClick={},label={Text("OpenRouter • Nemotron 3.5 Lightning Free")})
+        AssistChip(onClick={},label={Text("OpenRouter • Auto Free AI")})
         Text(
-            "Model: $OPENROUTER_NEMOTRON_FREE. The model endpoint is free, but OpenRouter requires your account API key and applies free-tier limits.",
+            "Primary: $OPENROUTER_NEMOTRON_FREE. If Nemotron is busy, MARAN automatically switches to another free OpenRouter model. Free-tier limits still apply.",
             style=MaterialTheme.typography.bodySmall
         )
 
