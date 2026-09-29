@@ -77,13 +77,19 @@ class AiChatViewModel(application:Application):AndroidViewModel(application) {
         job=viewModelScope.launch {
             mutable.update { it.copy(busy=true,error=null) }
             try {
-                val history=(state.value.messages.takeLast(10)+AiMessage("user",text.trim()))
-                val answer=client.chat(key,history)
+                // Keep only the most recent context to reduce prompt size and latency.
+                val history=(state.value.messages.takeLast(6)+AiMessage("user",text.trim()))
                 mutable.update {
-                    it.copy(
-                        messages=history+AiMessage("assistant",answer),
-                        lastModel=OPENROUTER_NEMOTRON_FREE
-                    )
+                    it.copy(messages=history+AiMessage("assistant",""), lastModel="openrouter/free")
+                }
+                var streamed = ""
+                client.streamChat(key,history) { delta ->
+                    streamed += delta
+                    mutable.update { current ->
+                        val updated=current.messages.toMutableList()
+                        if(updated.isNotEmpty()) updated[updated.lastIndex]=AiMessage("assistant",streamed)
+                        current.copy(messages=updated,lastModel="openrouter/free")
+                    }
                 }
             } catch(e:CancellationException) {
                 mutable.update { it.copy(error="Request stopped.") }
