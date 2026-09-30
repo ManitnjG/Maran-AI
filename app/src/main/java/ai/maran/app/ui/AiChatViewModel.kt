@@ -63,6 +63,18 @@ class AiChatViewModel(application:Application):AndroidViewModel(application) {
 
     fun stop() { job?.cancel() }
 
+    fun voiceError(message:String) {
+        mutable.update { it.copy(error=message) }
+    }
+
+    fun sendVoice(text:String) {
+        if(text.isBlank()) {
+            mutable.update { it.copy(error="I could not hear any words. Please try again.") }
+            return
+        }
+        send(text)
+    }
+
     fun send(text:String) {
         if(state.value.busy || text.isBlank()) return
         if(text.length > 12000) {
