@@ -16,9 +16,29 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.withStyle
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.lifecycle.viewmodel.compose.viewModel
-import ai.maran.app.data.OPENROUTER_NEMOTRON_FREE
 import ai.maran.app.voice.SpeechController
+
+private fun formattedAnswer(raw:String):androidx.compose.ui.text.AnnotatedString = buildAnnotatedString {
+    // Keep streamed Markdown readable without exposing literal ** and ###.
+    val cleaned=raw.replace(Regex("(?m)^#{1,6} +"), "")
+        .replace(Regex("(?m)^---+\\\\s*$"), "")
+    val parts=Regex("\\\\*\\\\*(.+?)\\\\*\\\\*").findAll(cleaned)
+    var cursor=0
+    parts.forEach { match ->
+        append(cleaned.substring(cursor,match.range.first))
+        withStyle(SpanStyle(fontWeight=FontWeight.Bold)) { append(match.groupValues[1]) }
+        cursor=match.range.last+1
+    }
+    append(cleaned.substring(cursor))
+}
 
 @Composable
 fun AiChatScreen(vm:AiChatViewModel=viewModel()) {
@@ -67,10 +87,9 @@ fun AiChatScreen(vm:AiChatViewModel=viewModel()) {
         dismissButton={TextButton(onClick={confirmRemove=false}){Text("Keep")}}
     )
 
-    Column(
-        Modifier.fillMaxSize().imePadding().verticalScroll(rememberScrollState()).padding(20.dp),
-        verticalArrangement=Arrangement.spacedBy(10.dp)
-    ) {
+    val scroll=rememberScrollState()
+    Column(Modifier.fillMaxSize().imePadding()) {
+      Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(scroll).padding(horizontal=16.dp,vertical=12.dp), verticalArrangement=Arrangement.spacedBy(10.dp)) {
         Text("MARAN AI",style=MaterialTheme.typography.headlineLarge)
         AssistChip(onClick={},label={Text("OpenRouter • Auto Free AI")})
         Text(
@@ -145,7 +164,7 @@ fun AiChatScreen(vm:AiChatViewModel=viewModel()) {
             Card(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(14.dp)) {
                     Text(if(message.role=="user") "You" else "MARAN",style=MaterialTheme.typography.labelLarge)
-                    SelectionContainer { Text(message.content) }
+                    SelectionContainer { Text(if(message.role=="assistant") formattedAnswer(message.content) else buildAnnotatedString { append(message.content) }) }
                 }
             }
         }
@@ -153,6 +172,8 @@ fun AiChatScreen(vm:AiChatViewModel=viewModel()) {
         state.lastModel?.let { Text("Answered by $it",style=MaterialTheme.typography.bodySmall) }
         state.error?.let { Text(it,color=MaterialTheme.colorScheme.error) }
 
+      } // Scrollable conversation
+      Column(Modifier.fillMaxWidth().padding(horizontal=16.dp,vertical=8.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
         OutlinedTextField(
             value=input,onValueChange={input=it},
             enabled=!state.busy&&state.keySaved,
@@ -174,5 +195,6 @@ fun AiChatScreen(vm:AiChatViewModel=viewModel()) {
                 OutlinedButton(onClick=vm::clear,enabled=state.messages.isNotEmpty()){Text("Clear")}
             }
         }
+      }
     }
 }
