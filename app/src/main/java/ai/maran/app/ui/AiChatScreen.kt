@@ -51,6 +51,7 @@ fun AiChatScreen(vm:AiChatViewModel=viewModel()) {
     var voiceLanguage by remember { mutableStateOf("en-IN") }
     var lastHeard by remember { mutableStateOf<String?>(null) }
     val context=LocalContext.current
+    val dispatchCommand=rememberPhoneCommand(vm)
 
     fun startVoice(launcher: androidx.activity.result.ActivityResultLauncher<android.content.Intent>) {
         try {
@@ -74,7 +75,7 @@ fun AiChatScreen(vm:AiChatViewModel=viewModel()) {
             else {
                 lastHeard=heard
                 input=heard
-                vm.sendVoice(heard)
+                dispatchCommand(heard)
                 input=""
             }
         }
@@ -189,8 +190,8 @@ fun AiChatScreen(vm:AiChatViewModel=viewModel()) {
         } else {
             Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
                 Button(
-                    onClick={vm.send(input);input=""},
-                    enabled=input.isNotBlank()&&(state.keySaved||vm.supportsLocal(input)),
+                    onClick={dispatchCommand(input);input=""},
+                    enabled=input.isNotBlank()&&(state.keySaved||vm.supportsLocal(input)||phoneCommandTarget(input)!=null),
                     modifier=Modifier.weight(1f)
                 ){Text("Send")}
                 OutlinedButton(onClick=vm::clear,enabled=state.messages.isNotEmpty()){Text("Clear")}
