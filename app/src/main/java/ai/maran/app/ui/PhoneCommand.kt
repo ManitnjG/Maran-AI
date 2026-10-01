@@ -43,7 +43,7 @@ internal fun rememberPhoneCommand(vm: AiChatViewModel): (String) -> Unit {
                 while (cursor.moveToNext()) {
                     val n = cursor.getString(ni).orEmpty()
                     val phone = cursor.getString(pi).orEmpty()
-                    if (n.contains(target, ignoreCase = true) && phone.isNotBlank() &&
+                    if ((n.contains(target, ignoreCase = true) || (target.length >= 4 && n.startsWith(target.take(3), ignoreCase = true))) && phone.isNotBlank() &&
                         found.none { it.name == n && it.number == phone }) {
                         found.add(PhoneChoice(n, phone))
                         if (found.size >= 20) break
