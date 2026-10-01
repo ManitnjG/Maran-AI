@@ -23,7 +23,7 @@ internal fun phoneCommandTarget(text: String): String? {
 }
 
 @Composable
-internal fun rememberPhoneCommand(vm: AiChatViewModel): (String) -> Unit {
+internal fun rememberPhoneCommand(vm: AiChatViewModel, fallback: (String) -> Unit = vm::send): (String) -> Unit {
     val context = androidx.compose.ui.platform.LocalContext.current
     var requested by remember { mutableStateOf<String?>(null) }
     var choices by remember { mutableStateOf<List<PhoneChoice>>(emptyList()) }
@@ -102,7 +102,7 @@ internal fun rememberPhoneCommand(vm: AiChatViewModel): (String) -> Unit {
 
     return { text ->
         val target = phoneCommandTarget(text)
-        if (target == null) vm.send(text)
+        if (target == null) fallback(text)
         else {
             requested = target
             if (context.checkSelfPermission(Manifest.permission.READ_CONTACTS) == PackageManager.PERMISSION_GRANTED) lookup(target)
