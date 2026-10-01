@@ -12,6 +12,13 @@
   <package android:name="com.instagram.android"/>
  </queries>
  <application android:theme="@style/Theme.Maran" android:label="MARAN" android:icon="@drawable/maran_icon" android:roundIcon="@drawable/maran_icon" android:allowBackup="false" android:usesCleartextTraffic="true">
+  <service android:name=".control.MaranAccessibilityService"
+   android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
+   android:exported="true" android:label="MARAN Device Control">
+   <intent-filter><action android:name="android.accessibilityservice.AccessibilityService"/></intent-filter>
+   <meta-data android:name="android.accessibilityservice"
+    android:resource="@xml/maran_accessibility"/>
+  </service>
   <activity android:name=".MainActivity" android:exported="true">
    <intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter>
   </activity>
