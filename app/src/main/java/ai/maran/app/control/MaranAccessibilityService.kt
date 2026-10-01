@@ -21,7 +21,7 @@ class MaranAccessibilityService : AccessibilityService() {
         super.onServiceConnected()
         serviceInfo = serviceInfo.apply {
             flags = flags or AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS
-            eventTypes = AccessibilityEvent.TYPES_ALL_MASK
+            eventTypes = AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED or AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED
         }
         active = this
     }
@@ -66,7 +66,7 @@ class MaranAccessibilityService : AccessibilityService() {
             }
             val target = Regex("""^(?:tap|press|select|click)\s+(.+)$""").matchEntire(command)?.groupValues?.get(1)?.trim()
                 ?: return ScreenResult(false, "Unsupported screen command.")
-            if (target.length < 2 || target in setOf("password","otp","captcha","pay","purchase","delete","confirm","submit","allow","grant","install"))
+            if (target.length < 2 || Regex("""(?i)\b(password|otp|captcha|pay|purchase|buy|delete|remove|confirm|submit|send|transfer|allow|grant|install|authorize|verify|sign in|log in|withdraw)\b""").containsMatchIn(target))
                 return ScreenResult(false, "That action needs direct review and confirmation in the app.")
             val matches = nodes(root).filter { node ->
                 node.isVisibleToUser && !node.isPassword &&
