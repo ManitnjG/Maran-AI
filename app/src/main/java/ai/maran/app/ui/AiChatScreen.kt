@@ -25,6 +25,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.lifecycle.viewmodel.compose.viewModel
 import ai.maran.app.voice.SpeechController
+import ai.maran.app.voice.MaranSpeaker
 import ai.maran.app.data.OPENROUTER_NEMOTRON_FREE
 
 private fun formattedAnswer(raw:String):androidx.compose.ui.text.AnnotatedString = buildAnnotatedString {
@@ -51,6 +52,18 @@ fun AiChatScreen(vm:AiChatViewModel=viewModel()) {
     var voiceLanguage by remember { mutableStateOf("en-IN") }
     var lastHeard by remember { mutableStateOf<String?>(null) }
     val context=LocalContext.current
+    val speaker=remember(context) { MaranSpeaker(context) }
+    DisposableEffect(speaker) { onDispose { speaker.close() } }
+    var speakNextReply by remember { mutableStateOf(false) }
+    LaunchedEffect(state.messages.lastOrNull()?.content,state.busy,speakNextReply) {
+        if(speakNextReply && !state.busy) {
+            val reply=state.messages.lastOrNull()?.takeIf { it.role=="assistant" && it.content.isNotBlank() }
+            if(reply!=null) {
+                speaker.speak(reply.content.replace(Regex("[*#]"),""),voiceLanguage)
+                speakNextReply=false
+            }
+        }
+    }
     val registry=remember(context) { AndroidToolRegistry(context) }
     val runLocal:(String)->Boolean = { command ->
         val action=LocalCommandEngine.parse(command)
@@ -61,7 +74,12 @@ fun AiChatScreen(vm:AiChatViewModel=viewModel()) {
         }
     }
     val realWorld=rememberRealWorldCommand(vm)
-    val dispatchCommand=rememberPhoneCommand(vm) { command -> if (!runLocal(command) && !realWorld(command)) vm.send(command) }
+    val dispatchCommand=rememberPhoneCommand(vm) { command ->
+        if(command.trim().lowercase() in listOf("stop speaking","maran stop speaking","stop talking","be quiet")) {
+            speaker.stop()
+            speakNextReply=false
+        } else if (!runLocal(command) && !realWorld(command)) vm.send(command)
+    }
 
     fun startVoice(launcher: androidx.activity.result.ActivityResultLauncher<android.content.Intent>) {
         try {
@@ -85,6 +103,7 @@ fun AiChatScreen(vm:AiChatViewModel=viewModel()) {
             else {
                 lastHeard=heard
                 input=heard
+                speakNextReply=true
                 dispatchCommand(heard)
                 input=""
             }
@@ -157,6 +176,7 @@ fun AiChatScreen(vm:AiChatViewModel=viewModel()) {
                 }
                 Button(
                     onClick={
+                        speaker.speak(if(voiceLanguage=="ta-IN") "சொல்லுங்கள், கேட்கிறேன்." else "Yes, I am listening.",voiceLanguage)
                         if(context.checkSelfPermission(Manifest.permission.RECORD_AUDIO)==PackageManager.PERMISSION_GRANTED) {
                             startVoice(speechLauncher)
                         } else {
@@ -200,7 +220,7 @@ fun AiChatScreen(vm:AiChatViewModel=viewModel()) {
         } else {
             Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
                 Button(
-                    onClick={dispatchCommand(input);input=""},
+                    onClick={speakNextReply=false;dispatchCommand(input);input=""},
                     enabled=input.isNotBlank()&&(state.keySaved||vm.supportsLocal(input)||phoneCommandTarget(input)!=null||realWorldCommand(input)!=null||LocalCommandEngine.parse(input)!=null),
                     modifier=Modifier.weight(1f)
                 ){Text("Send")}
