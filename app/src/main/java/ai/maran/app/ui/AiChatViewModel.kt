@@ -69,6 +69,13 @@ class AiChatViewModel(application:Application):AndroidViewModel(application) {
         mutable.update { it.copy(error=message) }
     }
 
+    fun recordPhoneAction(command:String, outcome:String) {
+        mutable.update { current ->
+            current.copy(messages=current.messages+AiMessage("user",command)+AiMessage("assistant",outcome),
+                error=null,lastModel="Android contacts tool • local")
+        }
+    }
+
     fun sendVoice(text:String) {
         if(text.isBlank()) {
             mutable.update { it.copy(error="I could not hear any words. Please try again.") }
