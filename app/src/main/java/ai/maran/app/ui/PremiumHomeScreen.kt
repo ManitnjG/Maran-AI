@@ -86,7 +86,7 @@ fun PremiumHomeScreen(
    Text("Quick starts",style=MaterialTheme.typography.titleLarge,color=Color.White)
    Spacer(Modifier.height(9.dp))
    actions.forEach { (title,description)->
-    OutlinedCard(onClick={prompt=description},modifier=Modifier.fillMaxWidth().padding(bottom=8.dp),shape=RoundedCornerShape(14.dp),colors=CardDefaults.outlinedCardColors(containerColor=Color(0xFF1A243A)),border=CardDefaults.outlinedCardBorder().copy(brush=androidx.compose.ui.graphics.SolidColor(Color(0xFF33415B)))) {
+    OutlinedCard(onClick={prompt=description},modifier=Modifier.fillMaxWidth().padding(bottom=8.dp),shape=RoundedCornerShape(14.dp),colors=CardDefaults.outlinedCardColors(containerColor=Color(0xFF1A243A))) {
      Row(Modifier.padding(14.dp),verticalAlignment=Alignment.CenterVertically){
       Column(Modifier.weight(1f)){Text(title,color=Color.White,style=MaterialTheme.typography.titleSmall);Text(description,color=Color(0xFFA5B4CD),style=MaterialTheme.typography.bodySmall)}
       Icon(Icons.Rounded.NorthEast,null,tint=blue)
@@ -107,7 +107,7 @@ fun PremiumHomeScreen(
 
 @Composable
 private fun DashboardTile(label:String,sub:String,icon:androidx.compose.ui.graphics.vector.ImageVector,modifier:Modifier,onClick:()->Unit){
- Surface(onClick=onClick,modifier=modifier,height=120.dp,shape=RoundedCornerShape(17.dp),color=Color(0xFF1A243A)){
+ Surface(onClick=onClick,modifier=modifier.height(120.dp),shape=RoundedCornerShape(17.dp),color=Color(0xFF1A243A)){
   Column(Modifier.padding(15.dp),verticalArrangement=Arrangement.SpaceBetween){
    Icon(icon,label,tint=violet,modifier=Modifier.size(24.dp))
    Column { Text(label,color=Color.White,style=MaterialTheme.typography.titleMedium);Text(sub,color=Color(0xFFA5B4CD),style=MaterialTheme.typography.bodySmall) }
