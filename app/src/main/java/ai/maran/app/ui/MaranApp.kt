@@ -18,14 +18,14 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.viewmodel.compose.viewModel
 import ai.maran.app.data.RemoteMission
-private enum class Tab(val label:String,val icon:ImageVector){Home("Home",Icons.Rounded.Home),Missions("Missions",Icons.Rounded.Checklist),Ai("AI",Icons.Rounded.AutoAwesome),Workforce("Workers",Icons.Rounded.Groups)}
+private enum class Tab(val label:String,val icon:ImageVector){Home("Home",Icons.Rounded.Home),Missions("Missions",Icons.Rounded.Checklist),Ai("AI",Icons.Rounded.AutoAwesome),Workforce("Workers",Icons.Rounded.Groups),Tools("Tools",Icons.Rounded.Build)}
 @Composable fun MaranApp(vm:MaranViewModel=viewModel()){
- var tab by remember{mutableStateOf(Tab.Ai)}; val state by vm.state.collectAsState()
+ var tab by remember{mutableStateOf(Tab.Home)}; val state by vm.state.collectAsState()
  var spoken by remember{mutableStateOf<String?>(null)}
  val speech=rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()){r-> if(r.resultCode==android.app.Activity.RESULT_OK){ SpeechController.result(r.data)?.let{spoken=it;vm.handleVoice(it)} } }
  MaterialTheme(colorScheme=if(androidx.compose.foundation.isSystemInDarkTheme()) darkColorScheme(primary=Color(0xFF818CF8),secondary=Color(0xFF38BDF8),tertiary=Color(0xFFC084FC),background=Color(0xFF090D16),surface=Color(0xFF111827)) else lightColorScheme(primary=Color(0xFF4F46E5),secondary=Color(0xFF0284C7),tertiary=Color(0xFF7C3AED))){
   Scaffold(bottomBar={NavigationBar{Tab.entries.forEach{item->NavigationBarItem(selected=tab==item,onClick={tab=item},icon={Icon(item.icon,null)},label={Text(item.label)})}}}){pad->
-   Box(Modifier.padding(pad).fillMaxSize()){when(tab){Tab.Ai->AiChatScreen();Tab.Home->HomeScreen(state,vm::create,vm::handleVoice,{try { speech.launch(SpeechController.intent(state.voiceLanguage)) } catch(e:android.content.ActivityNotFoundException) { vm.voiceUnavailable() }});Tab.Missions->MissionScreen(state,vm::decide,vm::run,vm::stop,vm::refresh,vm::exportMission);Tab.Workforce->WorkforceScreen(state.missions,state.workers,vm::stopWorker,vm::createWorker)}}
+   Box(Modifier.padding(pad).fillMaxSize()){when(tab){Tab.Ai->AiChatScreen();Tab.Home->PremiumHomeScreen(state,vm::create,{try { speech.launch(SpeechController.intent(state.voiceLanguage)) } catch(e:android.content.ActivityNotFoundException) { vm.voiceUnavailable() }},{tab=Tab.Ai},{tab=Tab.Missions},{tab=Tab.Workforce},{tab=Tab.Tools});Tab.Missions->MissionScreen(state,vm::decide,vm::run,vm::stop,vm::refresh,vm::exportMission);Tab.Workforce->WorkforceScreen(state.missions,state.workers,vm::stopWorker,vm::createWorker);Tab.Tools->ToolsScreen(state,vm)}}
   }
  }
 }
