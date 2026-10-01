@@ -25,6 +25,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.lifecycle.viewmodel.compose.viewModel
 import ai.maran.app.voice.SpeechController
+import ai.maran.app.data.OPENROUTER_NEMOTRON_FREE
 
 private fun formattedAnswer(raw:String):androidx.compose.ui.text.AnnotatedString = buildAnnotatedString {
     // Keep streamed Markdown readable without exposing literal ** and ###.
@@ -151,7 +152,7 @@ fun AiChatScreen(vm:AiChatViewModel=viewModel()) {
                             permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
                         }
                     },
-                    enabled=!state.busy&&state.keySaved,
+                    enabled=!state.busy,
                     modifier=Modifier.fillMaxWidth()
                 ){
                     Text(if(state.busy) "AI is answering…" else "🎤 Speak to MARAN")
@@ -176,8 +177,8 @@ fun AiChatScreen(vm:AiChatViewModel=viewModel()) {
       Column(Modifier.fillMaxWidth().padding(horizontal=16.dp,vertical=8.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
         OutlinedTextField(
             value=input,onValueChange={input=it},
-            enabled=!state.busy&&state.keySaved,
-            label={Text(if(state.keySaved) "Ask MARAN AI" else "Save OpenRouter key first")},
+            enabled=!state.busy,
+            label={Text(if(state.keySaved) "Ask MARAN AI" else "Ask about your phone, or save an AI key")},
             modifier=Modifier.fillMaxWidth(),
             maxLines=6
         )
@@ -189,7 +190,7 @@ fun AiChatScreen(vm:AiChatViewModel=viewModel()) {
             Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
                 Button(
                     onClick={vm.send(input);input=""},
-                    enabled=input.isNotBlank()&&state.keySaved,
+                    enabled=input.isNotBlank()&&(state.keySaved||vm.supportsLocal(input)),
                     modifier=Modifier.weight(1f)
                 ){Text("Send")}
                 OutlinedButton(onClick=vm::clear,enabled=state.messages.isNotEmpty()){Text("Clear")}
