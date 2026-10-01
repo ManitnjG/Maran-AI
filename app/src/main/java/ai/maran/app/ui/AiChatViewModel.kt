@@ -89,7 +89,7 @@ class AiChatViewModel(application:Application):AndroidViewModel(application) {
             "Android version: ${Build.VERSION.RELEASE}",
             "Android API level: ${Build.VERSION.SDK_INT}",
             "Battery level: ${level?.let { "$it%" } ?: "unavailable"}"
-        ).joinToString("\\n")
+        ).joinToString("\n")
     }
 
     private fun wantsDeviceResearch(text:String):Boolean {
@@ -101,6 +101,16 @@ class AiChatViewModel(application:Application):AndroidViewModel(application) {
         if(state.value.busy || text.isBlank()) return
         if(text.length > 12000) {
             mutable.update { it.copy(error="Please keep each message under 12,000 characters.") }
+            return
+        }
+        // A real, local tool: answer supported device questions without a cloud model or API key.
+        if (wantsDeviceResearch(text)) {
+            val report="Live device details (read from this Android phone):\\n"+deviceSummary()+
+                "\\n\\nThese values are from Android system APIs. MARAN has not read your IMEI, phone number, private files, installed apps or location. Online product specifications have not been verified."
+            mutable.update { current ->
+                current.copy(messages=current.messages+AiMessage("user",text.trim())+AiMessage("assistant",report),
+                    busy=false,error=null,lastModel="Android device tool • local")
+            }
             return
         }
         val key=keys.read()
