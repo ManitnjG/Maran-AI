@@ -4,7 +4,6 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import ai.maran.app.data.AiMessage
-import ai.maran.app.data.OPENROUTER_NEMOTRON_FREE
 import ai.maran.app.data.OpenRouterClient
 import ai.maran.app.data.OpenRouterFailure
 import ai.maran.app.security.SecureTokenStore
@@ -90,19 +89,20 @@ class AiChatViewModel(application:Application):AndroidViewModel(application) {
             mutable.update { it.copy(busy=true,error=null) }
             try {
                 // Keep only the most recent context to reduce prompt size and latency.
-                val history=(state.value.messages.takeLast(6)+AiMessage("user",text.trim()))
+                val history=(state.value.messages.filter { it.content.isNotBlank() }.takeLast(6)+AiMessage("user",text.trim()))
                 mutable.update {
-                    it.copy(messages=history+AiMessage("assistant",""), lastModel="openrouter/free")
+                    it.copy(messages=history+AiMessage("assistant",""), lastModel="OpenRouter • streaming")
                 }
-                var streamed = ""
+                val streamed = StringBuilder()
                 client.streamChat(key,history) { delta ->
-                    streamed += delta
+                    streamed.append(delta)
                     mutable.update { current ->
                         val updated=current.messages.toMutableList()
-                        if(updated.isNotEmpty()) updated[updated.lastIndex]=AiMessage("assistant",streamed)
+                        if(updated.isNotEmpty()) updated[updated.lastIndex]=AiMessage("assistant",streamed.toString())
                         current.copy(messages=updated,lastModel="openrouter/free")
                     }
                 }
+                mutable.update { it.copy(lastModel="OpenRouter free model") }
             } catch(e:CancellationException) {
                 mutable.update { it.copy(error="Request stopped.") }
                 throw e
