@@ -20,6 +20,7 @@ internal fun realWorldCommand(text: String): Pair<String,String>? {
         "whatsapp" to "whatsapp", "youtube" to "youtube", "chrome" to "chrome",
         "gmail" to "gmail", "instagram" to "instagram"
     )
+    if (Regex("""^(?:please\s+)?(?:take\s+(?:a\s+)?photo|take\s+(?:a\s+)?picture|turn\s+on\s+(?:the\s+)?camera|launch\s+(?:the\s+)?camera)\s*[.!]?$""",RegexOption.IGNORE_CASE).matches(trimmed)) return "device" to "camera"
     val open=Regex("""^(?:please\s+)?(?:open|launch|start|show)\s+(.+?)\s*[.!]?$""",RegexOption.IGNORE_CASE)
         .matchEntire(trimmed)?.groupValues?.get(1)?.trim()?.lowercase()
     if(open!=null && deviceActions.containsKey(open)) return "device" to deviceActions.getValue(open)
