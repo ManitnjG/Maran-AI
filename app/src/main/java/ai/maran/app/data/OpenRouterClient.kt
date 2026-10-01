@@ -39,6 +39,11 @@ class OpenRouterClient {
         .retryOnConnectionFailure(true)
         .build()
 
+    private val streamHttp = http.newBuilder()
+        .readTimeout(12, TimeUnit.SECONDS)
+        .callTimeout(0, TimeUnit.SECONDS)
+        .build()
+
     private suspend fun execute(request: Request): String = suspendCancellableCoroutine { continuation ->
         val call = http.newCall(request)
         continuation.invokeOnCancellation { call.cancel() }
@@ -133,7 +138,7 @@ class OpenRouterClient {
         messages:List<AiMessage>,
         onDelta:(String)->Unit
     ):String = withContext(Dispatchers.IO) {
-        val call = http.newCall(request(apiKey,model,messages,stream=true))
+        val call = streamHttp.newCall(request(apiKey,model,messages,stream=true))
         val cancellation = currentCoroutineContext()[kotlinx.coroutines.Job]?.invokeOnCompletion { cause ->
             if (cause != null) call.cancel()
         }
@@ -184,9 +189,7 @@ class OpenRouterClient {
         val forward:(String)->Unit = { delta -> received=true; onDelta(delta) }
         // Route quickly to an available free model. Switch once if no text arrives.
         try {
-            return withTimeout(12_000L) {
-                streamFrom(apiKey, OPENROUTER_FREE_ROUTER, messages, forward)
-            }
+            return streamFrom(apiKey, OPENROUTER_FREE_ROUTER, messages, forward)
         } catch (e: OpenRouterFailure) {
             if (received || e.status==401 || e.status==402) throw e
         } catch (e: TimeoutCancellationException) {
