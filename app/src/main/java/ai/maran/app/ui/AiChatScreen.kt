@@ -55,8 +55,9 @@ fun AiChatScreen(vm:AiChatViewModel=viewModel()) {
     val speaker=remember(context) { MaranSpeaker(context) }
     DisposableEffect(speaker) { onDispose { speaker.close() } }
     var speakNextReply by remember { mutableStateOf(false) }
+    var replyAfterCount by remember { mutableIntStateOf(0) }
     LaunchedEffect(state.messages.lastOrNull()?.content,state.busy,speakNextReply) {
-        if(speakNextReply && !state.busy) {
+        if(speakNextReply && !state.busy && state.messages.size>replyAfterCount) {
             val reply=state.messages.lastOrNull()?.takeIf { it.role=="assistant" && it.content.isNotBlank() }
             if(reply!=null) {
                 speaker.speak(reply.content.replace(Regex("[*#]"),""),voiceLanguage)
@@ -65,11 +66,27 @@ fun AiChatScreen(vm:AiChatViewModel=viewModel()) {
         }
     }
     val registry=remember(context) { AndroidToolRegistry(context) }
+    var pendingTorch by remember { mutableStateOf<String?>(null) }
+    val torchPermission=rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        val command=pendingTorch
+        pendingTorch=null
+        if(command!=null) {
+            val action=LocalCommandEngine.parse(command)
+            if(granted && action!=null) vm.recordPhoneAction(command,registry.execute(action).message)
+            else vm.recordPhoneAction(command,"Camera/flashlight permission was declined. No action performed.")
+        }
+    }
     val runLocal:(String)->Boolean = { command ->
         val action=LocalCommandEngine.parse(command)
         if(action==null) false else {
-            val outcome=registry.execute(action)
-            vm.recordPhoneAction(command,outcome.message)
+            if(action.toolId.startsWith("torch.") &&
+                context.checkSelfPermission(Manifest.permission.CAMERA)!=PackageManager.PERMISSION_GRANTED) {
+                pendingTorch=command
+                torchPermission.launch(Manifest.permission.CAMERA)
+            } else {
+                val outcome=registry.execute(action)
+                vm.recordPhoneAction(command,outcome.message)
+            }
             true
         }
     }
@@ -103,6 +120,7 @@ fun AiChatScreen(vm:AiChatViewModel=viewModel()) {
             else {
                 lastHeard=heard
                 input=heard
+                replyAfterCount=state.messages.size
                 speakNextReply=true
                 dispatchCommand(heard)
                 input=""
