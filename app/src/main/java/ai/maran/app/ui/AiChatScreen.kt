@@ -90,12 +90,13 @@ fun AiChatScreen(vm:AiChatViewModel=viewModel()) {
             true
         }
     }
+    val screenControl=rememberScreenCommand(vm)
     val realWorld=rememberRealWorldCommand(vm)
     val dispatchCommand=rememberPhoneCommand(vm) { command ->
         if(command.trim().lowercase() in listOf("stop speaking","maran stop speaking","stop talking","be quiet")) {
             speaker.stop()
             speakNextReply=false
-        } else if (!runLocal(command) && !realWorld(command)) vm.send(command)
+        } else if (!runLocal(command) && !screenControl(command) && !realWorld(command)) vm.send(command)
     }
 
     fun startVoice(launcher: androidx.activity.result.ActivityResultLauncher<android.content.Intent>) {
@@ -239,7 +240,7 @@ fun AiChatScreen(vm:AiChatViewModel=viewModel()) {
             Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
                 Button(
                     onClick={speakNextReply=false;dispatchCommand(input);input=""},
-                    enabled=input.isNotBlank()&&(state.keySaved||vm.supportsLocal(input)||phoneCommandTarget(input)!=null||realWorldCommand(input)!=null||LocalCommandEngine.parse(input)!=null),
+                    enabled=input.isNotBlank()&&(state.keySaved||vm.supportsLocal(input)||phoneCommandTarget(input)!=null||realWorldCommand(input)!=null||LocalCommandEngine.parse(input)!=null||screenCommand(input)),
                     modifier=Modifier.weight(1f)
                 ){Text("Send")}
                 OutlinedButton(onClick=vm::clear,enabled=state.messages.isNotEmpty()){Text("Clear")}
