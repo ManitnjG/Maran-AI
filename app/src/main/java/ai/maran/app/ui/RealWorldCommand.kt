@@ -49,7 +49,7 @@ internal fun rememberRealWorldCommand(vm: AiChatViewModel): (String) -> Boolean 
                 val intent=when(type) {
                     "device" -> when(value) {
                         "camera" -> Intent(MediaStore.INTENT_ACTION_STILL_IMAGE_CAMERA)
-                        "gallery" -> Intent(Intent.ACTION_GET_CONTENT).apply { type="image/*"; addCategory(Intent.CATEGORY_OPENABLE) }
+                        "gallery" -> Intent(Intent.ACTION_GET_CONTENT).apply { this.type="image/*"; addCategory(Intent.CATEGORY_OPENABLE) }
                         "wifi" -> Intent(Settings.ACTION_WIFI_SETTINGS)
                         "bluetooth" -> Intent(Settings.ACTION_BLUETOOTH_SETTINGS)
                         "display" -> Intent(Settings.ACTION_DISPLAY_SETTINGS)
