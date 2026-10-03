@@ -21,12 +21,17 @@ Android permissions are requested at use time. External actions are prepared in 
 - Lifecycle-managed TextToSpeech feedback for a new spoken response, and stop-speaking command.
 - Parser unit tests.
 - Existing UI, tools, Manager and workers retained.
+- Home microphone and foreground wake callback both route through the AI tab native dispatcher.
+- Optional MARAN Accessibility service provides explicit Back, Home, scroll, read-visible-text and exact-label tap commands.
+- Tools screen links to Android Accessibility settings; user must enable Device Control manually.
+- App launcher uses exact labels from visible installed launcher activities; ambiguous matches are rejected.
+- Android launcher and routing tests added; Markdown display regex corrected.
 
 ## Further stages / not yet implemented
 - Full streaming SpeechRecognizer UI, partial speech and VAD.
-- General voice orb and background wake word reliability on all Android devices.
+- General voice orb and a transparent, opt-in microphone foreground service for voice commands while other apps are visible. Presently the Home wake listener stops when MARAN leaves the foreground.
 - Shared capability/permission/risk registry for every existing action.
-- User-approved AccessibilityService screen interaction, semantic disambiguation and read screen.
+- Broader accessibility support, explicit multi-match selection and end-to-end testing on real devices.
 - Editable persistent skills, demonstration learning and memory isolation.
 - Multi-step task planner, persistent background execution and connector OAuth flows.
 - Complete release signing, on-device tests and accessibility/privacy audit.
@@ -37,4 +42,6 @@ Android permissions are requested at use time. External actions are prepared in 
 3. Assistant reports only API execution result and speaks the new result.
 4. "Stop speaking" interrupts speech; "flashlight off" switches off.
 5. Test unsupported/no-flash hardware and denied permission.
-6. Confirm existing chat/Manager screens still work and no secrets enter builds.
+6. Enable Device Control manually; test Back, Home, scroll and Tap Settings on a non-sensitive screen.
+7. Confirm existing chat/Manager screens still work and no secrets enter builds.
+8. Device/app launch success means Android accepted a launch request, not proof of downstream work; test on device.
