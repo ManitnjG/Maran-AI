@@ -29,14 +29,16 @@ import ai.maran.app.voice.MaranSpeaker
 import ai.maran.app.data.OPENROUTER_NEMOTRON_FREE
 
 private fun formattedAnswer(raw:String):androidx.compose.ui.text.AnnotatedString = buildAnnotatedString {
-    // Keep streamed Markdown readable without exposing literal ** and ###.
-    val cleaned=raw.replace(Regex("(?m)^#{1,6} +"), "")
-        .replace(Regex("(?m)^---+\\\\s*$"), "")
-    val parts=Regex("\\\\*\\\\*(.+?)\\\\*\\\\*").findAll(cleaned)
+    // Format bold text while streaming without changing the underlying answer.
+    val cleaned=raw.replace(Regex("""(?m)^\s*#{1,6}\s+"""),"")
+        .replace(Regex("""(?m)^\s*---+\s*$"""),"")
+    val bold=Regex("""\*\*(.+?)\*\*""")
     var cursor=0
-    parts.forEach { match ->
+    for(match in bold.findAll(cleaned)) {
         append(cleaned.substring(cursor,match.range.first))
-        withStyle(SpanStyle(fontWeight=FontWeight.Bold)) { append(match.groupValues[1]) }
+        withStyle(SpanStyle(fontWeight=FontWeight.Bold)) {
+            append(match.groupValues[1])
+        }
         cursor=match.range.last+1
     }
     append(cleaned.substring(cursor))
