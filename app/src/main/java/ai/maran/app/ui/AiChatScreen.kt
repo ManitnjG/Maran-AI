@@ -110,7 +110,8 @@ fun AiChatScreen(
     val dispatchCommand:(String)->Unit = { raw ->
         val normalized=raw.trim().replace(
             Regex("""^(?i:(?:hey\s+)?maran)\s*[,.:!]*\s*"""),""
-        ).trim().ifBlank { raw.trim() }
+        ).replace(Regex("""^(?i:(?:please\s+)?(?:can|could|would)\s+you\s+|please\s+)"""),"")
+            .trim().ifBlank { raw.trim() }
         nativeDispatch(normalized)
     }
 
