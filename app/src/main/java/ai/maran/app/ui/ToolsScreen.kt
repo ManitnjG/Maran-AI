@@ -1,6 +1,8 @@
 package ai.maran.app.ui
 
 import android.content.Intent
+import android.provider.Settings
+import ai.maran.app.control.MaranAccessibilityService
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import kotlinx.coroutines.Dispatchers
@@ -42,7 +44,15 @@ import java.time.LocalDate
  var number by remember{mutableStateOf("")}
  var date by remember{mutableStateOf(LocalDate.now().toString())}
  var amount by remember{mutableStateOf("")}
- Column(Modifier.fillMaxWidth(),verticalArrangement=Arrangement.spacedBy(12.dp)){
+ Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){
+  Text("Voice Device Control",style=MaterialTheme.typography.titleLarge)
+  Text(if(MaranAccessibilityService.available()) "Device Control is enabled" else "Device Control is disabled")
+  Text("Optional screen reading, Back, Home, scrolling and exact-label tapping. Enable MARAN Device Control manually in Android Accessibility settings. Do not use it to approve payments, authentication or security prompts.",style=MaterialTheme.typography.bodySmall)
+  OutlinedButton(onClick={
+    try { context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) }
+    catch(_:Exception) { fileStatus="Accessibility settings unavailable on this phone" }
+  }) { Text("Open Accessibility settings") }
+
   Text("Readiness",style=MaterialTheme.typography.titleLarge)
   state.capabilities?.let{c->
    Text("Models: "+c.models.ifEmpty{listOf("None configured")}.joinToString())
