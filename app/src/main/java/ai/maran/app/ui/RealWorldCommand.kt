@@ -16,7 +16,7 @@ internal fun realWorldCommand(text: String): Pair<String,String>? {
         "wifi settings" to "wifi", "wi-fi settings" to "wifi",
         "bluetooth settings" to "bluetooth", "phone settings" to "settings",
         "settings" to "settings", "display settings" to "display",
-        "alarm" to "alarm", "alarms" to "alarm",
+        "alarm" to "alarm", "alarms" to "alarm", "maps" to "maps", "google maps" to "maps",
         "whatsapp" to "whatsapp", "youtube" to "youtube", "chrome" to "chrome",
         "gmail" to "gmail", "instagram" to "instagram",
         "calendar" to "calendar", "contacts" to "contacts", "messages" to "messages"
@@ -37,6 +37,8 @@ internal fun realWorldCommand(text: String): Pair<String,String>? {
         val value=pattern.matchEntire(trimmed)?.groupValues?.get(1)?.trim().orEmpty()
         if(value.isNotBlank()) return type to value.take(500)
     }
+    if (open != null && open.matches(Regex("""[\\p{L}0-9][\\p{L}0-9 ._-]{1,59}""")))
+        return "app" to open
     return null
 }
 
@@ -58,6 +60,7 @@ internal fun rememberRealWorldCommand(vm: AiChatViewModel): (String) -> Boolean 
                         "display" -> Intent(Settings.ACTION_DISPLAY_SETTINGS)
                         "settings" -> Intent(Settings.ACTION_SETTINGS)
                         "alarm" -> Intent(AlarmClock.ACTION_SHOW_ALARMS)
+                        "maps" -> Intent(Intent.ACTION_VIEW,Uri.parse("geo:0,0"))
                         "calendar" -> Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_APP_CALENDAR)
                         "contacts" -> Intent(Intent.ACTION_VIEW,Uri.parse("content://com.android.contacts/contacts"))
                         "messages" -> Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_APP_MESSAGING)
@@ -73,6 +76,22 @@ internal fun rememberRealWorldCommand(vm: AiChatViewModel): (String) -> Boolean 
                             context.packageManager.getLaunchIntentForPackage(pkg)
                                 ?: throw IllegalStateException(value+" is not installed or cannot be opened.")
                         }
+                    }
+                    "app" -> {
+                        val launcher=Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
+                        val matches=context.packageManager.queryIntentActivities(launcher,0)
+                            .filter { it.loadLabel(context.packageManager).toString().equals(value,ignoreCase=true) }
+                            .distinctBy { it.activityInfo.packageName }
+                        if(matches.size!=1) {
+                            throw IllegalStateException(
+                                if(matches.isEmpty()) "No visible installed app named "+value+"."
+                                else "Several apps match "+value+". Please use the full app name."
+                            )
+                        }
+                        val activity=matches.single().activityInfo
+                        context.packageManager.getLaunchIntentForPackage(activity.packageName)
+                            ?: Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
+                                .setClassName(activity.packageName,activity.name)
                     }
                     "web" -> Intent(Intent.ACTION_VIEW, Uri.parse("https://www.google.com/search?q="+Uri.encode(value)))
                     "map" -> Intent(Intent.ACTION_VIEW,Uri.parse("geo:0,0?q="+Uri.encode(value)))
@@ -90,7 +109,8 @@ internal fun rememberRealWorldCommand(vm: AiChatViewModel): (String) -> Boolean 
                 }
                 context.startActivity(safeIntent)
                 vm.recordPhoneAction(command, when(type) {
-                    "device" -> "Requested Android to open: "+value+". Check the opened app or settings screen."
+                    "device" -> "Android accepted the request to open "+value+". Check the displayed screen."
+                    "app" -> "Android accepted the request to open "+value+". Check the displayed app."
                     "web" -> "Opened browser search for: "+value+". Review the results and their sources."
                     "map" -> "Opened Maps search for: "+value+"."
                     "navigate" -> "Opened navigation for: "+value+". Confirm the route before travelling."
