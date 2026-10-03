@@ -27,7 +27,8 @@ fun PremiumHomeScreen(
  onAi:()->Unit,
  onMissions:()->Unit,
  onWorkers:()->Unit,
- onTools:()->Unit
+ onTools:()->Unit,
+ onWakeCommand:(String)->Unit
 ){
  var prompt by remember { mutableStateOf("") }
  val actions=listOf(
@@ -66,6 +67,13 @@ fun PremiumHomeScreen(
       Button(onClick={val value=prompt.trim();if(value.isNotEmpty()){onCreate(value);prompt=""}},enabled=prompt.isNotBlank()&&!state.busy,modifier=Modifier.weight(1f),shape=RoundedCornerShape(12.dp)){Icon(Icons.Rounded.ArrowUpward,null);Spacer(Modifier.width(6.dp));Text(if(state.busy) "Working…" else "Start mission")}
       FilledTonalIconButton(onClick=onVoice,enabled=!state.busy,modifier=Modifier.size(48.dp)){Icon(Icons.Rounded.Mic,"Speak to MARAN")}
      }
+    }
+   }
+  }
+  item {
+   Card(shape=RoundedCornerShape(16.dp),colors=CardDefaults.cardColors(containerColor=Color(0xFF1A243A)),modifier=Modifier.fillMaxWidth()){
+    Column(Modifier.padding(14.dp),verticalArrangement=Arrangement.spacedBy(6.dp)){
+     WakeControl("en-IN",onWakeCommand)
     }
    }
   }
