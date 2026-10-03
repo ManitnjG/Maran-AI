@@ -18,7 +18,7 @@ internal object DeviceInventoryCommand {
         ).containsMatchIn(text)
         val mentionsApps = Regex("""\b(?:apps?|applications?)\b""").containsMatchIn(text)
         val otherAction = Regex(
-            """\b(?:open|launch|start|install|uninstall|delete|remove|settings?|permissions?|develop|create|recommend|best)\b"""
+            """\b(?:open|launch|start|install|uninstall|delete|remove|settings?|permissions?|recent|running|develop|create|recommend|best)\b"""
         ).containsMatchIn(text)
         return asksForList && mentionsApps && !otherAction
     }
