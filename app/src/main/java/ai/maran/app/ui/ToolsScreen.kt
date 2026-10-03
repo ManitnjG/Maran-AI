@@ -36,6 +36,7 @@ import java.time.LocalDate
  }
  val scope=rememberCoroutineScope()
  var fileStatus by remember{mutableStateOf<String?>(null)}
+ var installedApps by remember { mutableStateOf<String?>(null) }
  var pendingExport by remember{mutableStateOf<ai.maran.app.data.ExportResult?>(null)}
  val saveFile=rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")){uri->
   val content=pendingExport?.content
@@ -72,6 +73,17 @@ import java.time.LocalDate
     try { context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) }
     catch(_:Exception) { fileStatus="Accessibility settings unavailable on this phone" }
   }) { Text("2. Open Accessibility settings") }
+
+  Text("Apps on this phone",style=MaterialTheme.typography.titleLarge)
+  Text("This reads visible launchable apps directly from Android. No AI key or Accessibility permission is required, and the list is not sent to OpenRouter.",style=MaterialTheme.typography.bodySmall)
+  OutlinedButton(onClick={installedApps=DeviceAppInventory.listLaunchable(context)}) {
+   Text("List installed apps")
+  }
+  installedApps?.let { result ->
+   androidx.compose.foundation.text.selection.SelectionContainer {
+    Text(result,style=MaterialTheme.typography.bodySmall)
+   }
+  }
 
   Text("Readiness",style=MaterialTheme.typography.titleLarge)
   state.capabilities?.let{c->

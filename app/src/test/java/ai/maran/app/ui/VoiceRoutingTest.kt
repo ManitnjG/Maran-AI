@@ -23,6 +23,7 @@ class VoiceRoutingTest {
         assertTrue(screenCommand("read this screen"))
         assertTrue(screenCommand("tap Settings"))
         assertTrue(screenCommand("show recent apps"))
+        assertTrue(screenCommand("show my recent apps"))
         assertFalse(screenCommand("What is the weather"))
     }
 
@@ -32,6 +33,11 @@ class VoiceRoutingTest {
         assertTrue(DeviceInventoryCommand.matches("Show me my apps"))
         assertTrue(DeviceInventoryCommand.matches("What apps do I have?"))
         assertTrue(DeviceInventoryCommand.matches("Which applications are installed on my phone?"))
+        assertTrue(DeviceInventoryCommand.matches("Can you list all my apps?"))
+        assertTrue(DeviceInventoryCommand.matches("Maran, please show me the apps on this device"))
+        assertTrue(DeviceInventoryCommand.matches("Tell me all the apps I have"))
+        assertTrue(DeviceInventoryCommand.matches("என் போனில் உள்ள ஆப்ஸ் என்ன"))
+        assertFalse(DeviceInventoryCommand.matches("What are apps?"))
         assertFalse(DeviceInventoryCommand.matches("show recent apps"))
         assertFalse(DeviceInventoryCommand.matches("show app settings"))
         assertFalse(DeviceInventoryCommand.matches("open WhatsApp"))

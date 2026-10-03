@@ -1,5 +1,6 @@
 package ai.maran.app.control
 
+import android.content.Intent
 import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.AccessibilityServiceInfo
 import android.view.accessibility.AccessibilityNodeInfo
@@ -30,6 +31,10 @@ class MaranAccessibilityService : AccessibilityService() {
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         // Never collect or persist passive events. Inspect only on an explicit user command.
     }
+    override fun onUnbind(intent: Intent?): Boolean {
+        if (active === this) active = null
+        return super.onUnbind(intent)
+    }
     override fun onDestroy() {
         if (active === this) active = null
         super.onDestroy()
@@ -45,7 +50,7 @@ class MaranAccessibilityService : AccessibilityService() {
             val success = performGlobalAction(GLOBAL_ACTION_HOME)
             return ScreenResult(success, if (success) "Opened the home screen." else "Android could not open Home.")
         }
-        if (command == "show recent apps" || command == "open recent apps" || command == "recent apps") {
+        if (command == "show recent apps" || command == "open recent apps" || command == "recent apps" || command == "show my recent apps" || command == "show recent applications") {
             val success = performGlobalAction(GLOBAL_ACTION_RECENTS)
             return ScreenResult(success, if (success) "Opened recent apps." else "Android could not open recent apps.")
         }
