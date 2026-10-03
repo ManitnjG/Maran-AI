@@ -25,6 +25,9 @@ Android permissions are requested at use time. External actions are prepared in 
 - Optional MARAN Accessibility service provides explicit Back, Home, scroll, read-visible-text and exact-label tap commands.
 - Tools screen links to Android Accessibility settings; user must enable Device Control manually.
 - App launcher uses exact labels from visible installed launcher activities; ambiguous matches are rejected.
+- Explicit installed-app-list questions use local PackageManager launcher queries, without API keys or cloud transmission; non-launcher/hidden system apps are not represented.
+- Android Restricted Settings help now links to MARAN App Info; approval remains a manual, trusted-user Android action.
+- Recent Apps is routed through the optional Accessibility service, and the enabled status refreshes after returning from Settings.
 - Android launcher and routing tests added; Markdown display regex corrected.
 
 ## Further stages / not yet implemented
@@ -45,3 +48,5 @@ Android permissions are requested at use time. External actions are prepared in 
 6. Enable Device Control manually; test Back, Home, scroll and Tap Settings on a non-sensitive screen.
 7. Confirm existing chat/Manager screens still work and no secrets enter builds.
 8. Device/app launch success means Android accepted a launch request, not proof of downstream work; test on device.
+9. With no OpenRouter key: "list all app i have" should return actual visible launcher app names. "show recent apps" should use Device Control or request manual enabling.
+10. For a sideloaded, trusted APK: manually allow restricted settings in Android App Info if offered, then enable MARAN Device Control; never automate or bypass this step.

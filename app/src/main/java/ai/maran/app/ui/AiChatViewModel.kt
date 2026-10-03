@@ -72,7 +72,7 @@ class AiChatViewModel(application:Application):AndroidViewModel(application) {
     fun recordPhoneAction(command:String, outcome:String) {
         mutable.update { current ->
             current.copy(messages=current.messages+AiMessage("user",command)+AiMessage("assistant",outcome),
-                error=null,lastModel="Android contacts tool • local")
+                error=null,lastModel="Android tool • local")
         }
     }
 
@@ -100,6 +100,8 @@ class AiChatViewModel(application:Application):AndroidViewModel(application) {
     }
 
     fun supportsLocal(text:String):Boolean {
+        // App inventory requests must use the native inventory tool, never a generic device summary.
+        if (Regex("""\b(?:apps?|applications?)\b""", RegexOption.IGNORE_CASE).containsMatchIn(text)) return false
         val value=text.lowercase()
         return listOf("my phone","my mobile","my device","this phone","this mobile","இந்த போன்","என் போன்","எனது மொபைல்").any { it in value }
     }
@@ -108,6 +110,11 @@ class AiChatViewModel(application:Application):AndroidViewModel(application) {
         if(state.value.busy || text.isBlank()) return
         if(text.length > 12000) {
             mutable.update { it.copy(error="Please keep each message under 12,000 characters.") }
+            return
+        }
+        // Read the actual phone inventory locally. Do not route app names to OpenRouter.
+        if (DeviceInventoryCommand.matches(text)) {
+            recordPhoneAction(text.trim(), DeviceAppInventory.listLaunchable(getApplication()))
             return
         }
         // A real, local tool: answer supported device questions without a cloud model or API key.

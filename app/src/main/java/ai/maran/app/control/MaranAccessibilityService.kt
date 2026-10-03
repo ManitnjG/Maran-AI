@@ -45,6 +45,10 @@ class MaranAccessibilityService : AccessibilityService() {
             val success = performGlobalAction(GLOBAL_ACTION_HOME)
             return ScreenResult(success, if (success) "Opened the home screen." else "Android could not open Home.")
         }
+        if (command == "show recent apps" || command == "open recent apps" || command == "recent apps") {
+            val success = performGlobalAction(GLOBAL_ACTION_RECENTS)
+            return ScreenResult(success, if (success) "Opened recent apps." else "Android could not open recent apps.")
+        }
         val root = rootInActiveWindow ?: return ScreenResult(false, "The current screen has no accessible content.")
         try {
             if (command == "scroll down" || command == "scroll up") {

@@ -22,7 +22,20 @@ class VoiceRoutingTest {
         assertTrue(screenCommand("Maran, scroll down"))
         assertTrue(screenCommand("read this screen"))
         assertTrue(screenCommand("tap Settings"))
+        assertTrue(screenCommand("show recent apps"))
         assertFalse(screenCommand("What is the weather"))
+    }
+
+    @Test fun inventoryRequestsUseLocalNativeTool() {
+        assertTrue(DeviceInventoryCommand.matches("list all app i have"))
+        assertTrue(DeviceInventoryCommand.matches("Maran, list all installed apps"))
+        assertTrue(DeviceInventoryCommand.matches("Show me my apps"))
+        assertTrue(DeviceInventoryCommand.matches("What apps do I have?"))
+        assertTrue(DeviceInventoryCommand.matches("Which applications are installed on my phone?"))
+        assertFalse(DeviceInventoryCommand.matches("show recent apps"))
+        assertFalse(DeviceInventoryCommand.matches("show app settings"))
+        assertFalse(DeviceInventoryCommand.matches("open WhatsApp"))
+        assertFalse(DeviceInventoryCommand.matches("Explain Android apps"))
     }
 
     @Test fun offlineCommandsAreUnaffected() {
