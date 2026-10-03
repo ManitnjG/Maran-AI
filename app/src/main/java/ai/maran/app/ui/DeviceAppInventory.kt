@@ -12,15 +12,25 @@ internal object DeviceInventoryCommand {
     fun matches(raw: String): Boolean {
         val text = raw.trim()
             .replace(Regex("""^(?i:(?:hey\s+)?maran)\s*[,.:!]*\s*"""), "")
-            .trim().lowercase(Locale.ROOT)
-        val asksForList = Regex(
-            """^(?:please\s+)?(?:(?:list|show|display|name)(?:\s+me)?|(?:what|which)\b|tell\s+me\b)"""
-        ).containsMatchIn(text)
+            .replace(Regex("""^(?i:(?:please\s+)?(?:can|could|would)\s+you\s+|please\s+)"""), "")
+            .trim().trimEnd('?', '.', '!').lowercase(Locale.ROOT)
+
         val mentionsApps = Regex("""\b(?:apps?|applications?)\b""").containsMatchIn(text)
+        val tamilApps = listOf("ஆப்", "செயலி").any { it in text }
         val otherAction = Regex(
             """\b(?:open|launch|start|install|uninstall|delete|remove|settings?|permissions?|recent|running|develop|create|recommend|best)\b"""
         ).containsMatchIn(text)
-        return asksForList && mentionsApps && !otherAction
+        if (otherAction) return false
+
+        if (tamilApps && listOf("காட்டு", "பட்டியல்", "என்ன", "உள்ள", "சொல்").any { it in text }) return true
+        if (!mentionsApps) return false
+
+        val direct = Regex("""^(?:list|show|display|name)(?:\s+me)?\b""").containsMatchIn(text)
+        val question = Regex("""^(?:what|which)\b""").containsMatchIn(text) &&
+            Regex("""\b(?:my|i|have|installed|phone|mobile|device|this|there|all)\b""").containsMatchIn(text)
+        val tellMe = text.startsWith("tell me ") &&
+            Regex("""\b(?:my|installed|i have|all|on this)\b""").containsMatchIn(text)
+        return direct || question || tellMe
     }
 }
 
