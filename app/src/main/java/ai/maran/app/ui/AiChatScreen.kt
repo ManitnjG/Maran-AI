@@ -215,7 +215,7 @@ fun AiChatScreen(
         Card(Modifier.fillMaxWidth()) {
             Column(Modifier.padding(14.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
                 Text("Voice AI",style=MaterialTheme.typography.titleMedium)
-                Text("Speak naturally. Your phone converts speech to text, then Nemotron answers.",style=MaterialTheme.typography.bodySmall)
+                Text("Speak naturally. Device actions and installed-app listing run locally; general questions use OpenRouter.",style=MaterialTheme.typography.bodySmall)
                 Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
                     FilterChip(
                         selected=voiceLanguage=="en-IN",
@@ -274,7 +274,7 @@ fun AiChatScreen(
             Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
                 Button(
                     onClick={speakNextReply=false;dispatchCommand(input);input=""},
-                    enabled=input.isNotBlank()&&(state.keySaved||vm.supportsLocal(input)||phoneCommandTarget(input)!=null||realWorldCommand(input)!=null||LocalCommandEngine.parse(input)!=null||screenCommand(input)),
+                    enabled=input.isNotBlank()&&(state.keySaved||vm.supportsLocal(input)||phoneCommandTarget(input)!=null||realWorldCommand(input)!=null||LocalCommandEngine.parse(input)!=null||screenCommand(input)||DeviceInventoryCommand.matches(input)),
                     modifier=Modifier.weight(1f)
                 ){Text("Send")}
                 OutlinedButton(onClick=vm::clear,enabled=state.messages.isNotEmpty()){Text("Clear")}
