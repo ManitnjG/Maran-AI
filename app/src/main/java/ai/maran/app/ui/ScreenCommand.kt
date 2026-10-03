@@ -10,7 +10,8 @@ import ai.maran.app.control.MaranAccessibilityService
 internal fun screenCommand(text:String):Boolean {
     val normalized=text.trim().replace(Regex("""^(?i:hey\s+)?(?i:maran)[,:\s!.]*"""),"").lowercase()
     return normalized in setOf("go back","back","go home","home screen","scroll down","scroll up",
-        "read this screen","what is on my screen","what's on my screen") ||
+        "read this screen","what is on my screen","what's on my screen",
+        "show recent apps","open recent apps","recent apps") ||
         Regex("""^(tap|press|select|click)\s+\S.+$""").matches(normalized)
 }
 
