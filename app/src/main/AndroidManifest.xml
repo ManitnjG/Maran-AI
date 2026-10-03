@@ -5,6 +5,7 @@
  <uses-permission android:name="android.permission.READ_CONTACTS"/>
  <uses-permission android:name="android.permission.INTERNET"/>
  <queries>
+  <intent><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent>
   <package android:name="com.whatsapp"/>
   <package android:name="com.google.android.youtube"/>
   <package android:name="com.android.chrome"/>
