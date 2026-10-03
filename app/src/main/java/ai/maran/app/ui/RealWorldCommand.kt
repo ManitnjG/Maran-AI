@@ -37,7 +37,7 @@ internal fun realWorldCommand(text: String): Pair<String,String>? {
         val value=pattern.matchEntire(trimmed)?.groupValues?.get(1)?.trim().orEmpty()
         if(value.isNotBlank()) return type to value.take(500)
     }
-    if (open != null && open.matches(Regex("""[\\p{L}0-9][\\p{L}0-9 ._-]{1,59}""")))
+    if (open != null && open.matches(Regex("""[\p{L}0-9][\p{L}0-9 ._-]{1,59}""")))
         return "app" to open
     return null
 }
