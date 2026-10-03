@@ -43,7 +43,13 @@ private fun formattedAnswer(raw:String):androidx.compose.ui.text.AnnotatedString
 }
 
 @Composable
-fun AiChatScreen(vm:AiChatViewModel=viewModel()) {
+fun AiChatScreen(
+    vm:AiChatViewModel=viewModel(),
+    autoListenSignal:Int=0,
+    incomingCommand:String?=null,
+    onIncomingConsumed:()->Unit={},
+    onAutoListenConsumed:()->Unit={}
+) {
     val state by vm.state.collectAsState()
     var input by remember { mutableStateOf("") }
     var key by remember { mutableStateOf("") }
@@ -92,11 +98,18 @@ fun AiChatScreen(vm:AiChatViewModel=viewModel()) {
     }
     val screenControl=rememberScreenCommand(vm)
     val realWorld=rememberRealWorldCommand(vm)
-    val dispatchCommand=rememberPhoneCommand(vm) { command ->
+    val nativeDispatch=rememberPhoneCommand(vm) { command ->
         if(command.trim().lowercase() in listOf("stop speaking","maran stop speaking","stop talking","be quiet")) {
             speaker.stop()
             speakNextReply=false
         } else if (!runLocal(command) && !screenControl(command) && !realWorld(command)) vm.send(command)
+    }
+
+    val dispatchCommand:(String)->Unit = { raw ->
+        val normalized=raw.trim().replace(
+            Regex("""^(?i:(?:hey\s+)?maran)\s*[,.:!]*\s*"""),""
+        ).trim().ifBlank { raw.trim() }
+        nativeDispatch(normalized)
     }
 
     fun startVoice(launcher: androidx.activity.result.ActivityResultLauncher<android.content.Intent>) {
@@ -126,6 +139,26 @@ fun AiChatScreen(vm:AiChatViewModel=viewModel()) {
                 dispatchCommand(heard)
                 input=""
             }
+        }
+    }
+
+    LaunchedEffect(autoListenSignal) {
+        if(autoListenSignal>0) {
+            if(context.checkSelfPermission(Manifest.permission.RECORD_AUDIO)==PackageManager.PERMISSION_GRANTED) {
+                startVoice(speechLauncher)
+            } else {
+                permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+            }
+            onAutoListenConsumed()
+        }
+    }
+    LaunchedEffect(incomingCommand) {
+        val command=incomingCommand?.trim().orEmpty()
+        if(command.isNotEmpty()) {
+            replyAfterCount=state.messages.size
+            speakNextReply=true
+            dispatchCommand(command)
+            onIncomingConsumed()
         }
     }
 
@@ -195,7 +228,6 @@ fun AiChatScreen(vm:AiChatViewModel=viewModel()) {
                 }
                 Button(
                     onClick={
-                        speaker.speak(if(voiceLanguage=="ta-IN") "சொல்லுங்கள், கேட்கிறேன்." else "Yes, I am listening.",voiceLanguage)
                         if(context.checkSelfPermission(Manifest.permission.RECORD_AUDIO)==PackageManager.PERMISSION_GRANTED) {
                             startVoice(speechLauncher)
                         } else {
