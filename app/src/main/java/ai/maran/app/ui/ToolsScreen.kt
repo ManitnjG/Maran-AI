@@ -59,7 +59,7 @@ import java.time.LocalDate
  var date by remember{mutableStateOf(LocalDate.now().toString())}
  var amount by remember{mutableStateOf("")}
  Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){
-  Text("Voice Device Control",style=MaterialTheme.typography.titleLarge)
+  MaranSectionHeading("Voice Device Control","Manage Android permissions safely")
   Text(if(deviceControlEnabled) "Device Control is enabled" else "Device Control is disabled")
   Text("Optional screen reading, Back, Home, scrolling and exact-label tapping. Enable MARAN Device Control manually in Android Accessibility settings. Do not use it to approve payments, authentication or security prompts.",style=MaterialTheme.typography.bodySmall)
   Text("If Android shows Restricted setting: open MARAN App Info, tap the three-dot menu (if available), choose Allow restricted settings, and approve with your screen lock. Only do this for an APK you trust. Then enable MARAN Device Control in Accessibility settings. MARAN cannot bypass this Android protection.",style=MaterialTheme.typography.bodySmall)
@@ -74,18 +74,16 @@ import java.time.LocalDate
     catch(_:Exception) { fileStatus="Accessibility settings unavailable on this phone" }
   }) { Text("2. Open Accessibility settings") }
 
-  Text("Apps on this phone",style=MaterialTheme.typography.titleLarge)
+  MaranSectionHeading("Apps on this phone")
   Text("This reads visible launchable apps directly from Android. No AI key or Accessibility permission is required, and the list is not sent to OpenRouter.",style=MaterialTheme.typography.bodySmall)
-  OutlinedButton(onClick={installedApps=DeviceAppInventory.listLaunchable(context)}) {
-   Text("List installed apps")
-  }
+  MaranSecondaryButton(label="List installed apps",onClick={installedApps=DeviceAppInventory.listLaunchable(context)})
   installedApps?.let { result ->
    androidx.compose.foundation.text.selection.SelectionContainer {
     Text(result,style=MaterialTheme.typography.bodySmall)
    }
   }
 
-  Text("Readiness",style=MaterialTheme.typography.titleLarge)
+  MaranSectionHeading("Readiness")
   state.capabilities?.let{c->
    Text("Models: "+c.models.ifEmpty{listOf("None configured")}.joinToString())
    Text("Storage: "+c.storage)
@@ -100,25 +98,25 @@ import java.time.LocalDate
    }
    Text(c.note,style=MaterialTheme.typography.bodySmall)
   }
-  Button(onClick={vm.checkConnections()},enabled=!state.busy){Text("Test connections")}
+  MaranPrimaryButton(label="Test connections",onClick={vm.checkConnections()},enabled=!state.busy)
   state.diagnostics?.let{Text(it)}
-  Text("Saved work",style=MaterialTheme.typography.titleLarge)
-  OutlinedButton(onClick={vm.backup()},enabled=!state.busy){Text("Export mission backup")}
-  OutlinedButton(onClick={restoreFile.launch(arrayOf("application/json","text/plain","application/octet-stream"))},enabled=!state.busy){Text("Restore mission backup")}
+  MaranSectionHeading("Saved work")
+  MaranSecondaryButton(label="Export mission backup",onClick={vm.backup()},enabled=!state.busy)
+  MaranSecondaryButton(label="Restore mission backup",onClick={restoreFile.launch(arrayOf("application/json","text/plain","application/octet-stream"))},enabled=!state.busy)
   fileStatus?.let{Text(it)}
-  Text("Tally sales voucher draft",style=MaterialTheme.typography.titleLarge)
+  MaranSectionHeading("Tally sales voucher draft")
   Text("For review and manual import. Enter exact existing company and ledger names. Tax handling, GST filing and Tally posting are not included.")
-  OutlinedTextField(company,{company=it},label={Text("Company")},modifier=Modifier.fillMaxWidth())
-  OutlinedTextField(customer,{customer=it},label={Text("Customer ledger")},modifier=Modifier.fillMaxWidth())
-  OutlinedTextField(ledger,{ledger=it},label={Text("Sales ledger")},modifier=Modifier.fillMaxWidth())
-  OutlinedTextField(number,{number=it},label={Text("Voucher number")},modifier=Modifier.fillMaxWidth())
-  OutlinedTextField(date,{date=it},label={Text("Date YYYY-MM-DD")},modifier=Modifier.fillMaxWidth())
-  OutlinedTextField(amount,{amount=it},label={Text("Amount INR")},modifier=Modifier.fillMaxWidth())
-  Button(onClick={vm.voucher(SalesVoucherRequest(company,customer,ledger,number,date,amount))},enabled=!state.busy&&listOf(company,customer,ledger,number,date,amount).all{it.isNotBlank()}){Text("Prepare XML for review")}
+  MaranInput(company,{company=it},label="Company",modifier=Modifier.fillMaxWidth())
+  MaranInput(customer,{customer=it},label="Customer ledger",modifier=Modifier.fillMaxWidth())
+  MaranInput(ledger,{ledger=it},label="Sales ledger",modifier=Modifier.fillMaxWidth())
+  MaranInput(number,{number=it},label="Voucher number",modifier=Modifier.fillMaxWidth())
+  MaranInput(date,{date=it},label="Date YYYY-MM-DD",modifier=Modifier.fillMaxWidth())
+  MaranInput(amount,{amount=it},label="Amount INR",modifier=Modifier.fillMaxWidth())
+  MaranPrimaryButton(label="Prepare XML for review",onClick={vm.voucher(SalesVoucherRequest(company,customer,ledger,number,date,amount))},enabled=!state.busy&&listOf(company,customer,ledger,number,date,amount).all{it.isNotBlank()})
   state.export?.let{export->
    Text(export.filename,style=MaterialTheme.typography.titleMedium)
    export.note?.let{Text(it)}
-   Button(onClick={pendingExport=export;saveFile.launch(export.filename)}){Text("Save file")}
+   MaranPrimaryButton(label="Save file",onClick={pendingExport=export;saveFile.launch(export.filename)})
    OutlinedButton(enabled=export.content.length<=20000,onClick={
     val send=Intent(Intent.ACTION_SEND).apply{type="text/plain";putExtra(Intent.EXTRA_SUBJECT,export.filename);putExtra(Intent.EXTRA_TEXT,export.content)}
     context.startActivity(Intent.createChooser(send,"Share export"))

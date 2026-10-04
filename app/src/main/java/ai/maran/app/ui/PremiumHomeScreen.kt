@@ -15,9 +15,9 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 
-private val ink=Color(0xFF10172B)
-private val violet=Color(0xFF818CF8)
-private val blue=Color(0xFF38BDF8)
+private val ink=MaranTokens.background
+private val violet=MaranTokens.accent
+private val blue=MaranTokens.secondary
 
 @Composable
 fun PremiumHomeScreen(
@@ -58,27 +58,23 @@ fun PremiumHomeScreen(
    }
   }
   item {
-   Card(shape=RoundedCornerShape(24.dp),colors=CardDefaults.cardColors(containerColor=Color(0xFF1C2450)),modifier=Modifier.fillMaxWidth()){
+   Card(shape=RoundedCornerShape(MaranTokens.cornerLarge),colors=CardDefaults.cardColors(containerColor=MaranTokens.elevated),modifier=Modifier.fillMaxWidth()){
     Column(Modifier.background(Brush.linearGradient(listOf(Color(0xFF312E81),Color(0xFF172554),Color(0xFF14273E)))).padding(21.dp),verticalArrangement=Arrangement.spacedBy(13.dp)){
      Text("What can I do for you?",style=MaterialTheme.typography.headlineMedium,color=Color.White)
      Text("Describe your goal. MARAN can help you plan and coordinate the work.",color=Color(0xFFCBD5E1))
-     OutlinedTextField(value=prompt,onValueChange={prompt=it},modifier=Modifier.fillMaxWidth(),enabled=!state.busy,placeholder={Text("Type a mission or request…")},minLines=2,maxLines=4,shape=RoundedCornerShape(16.dp),colors=OutlinedTextFieldDefaults.colors(focusedTextColor=Color.White,unfocusedTextColor=Color.White,focusedBorderColor=violet,unfocusedBorderColor=Color(0xFF62719E),focusedPlaceholderColor=Color(0xFFB7C2DA),unfocusedPlaceholderColor=Color(0xFFB7C2DA)))
+     MaranInput(value=prompt,onValueChange={prompt=it},label="Type a mission or request",modifier=Modifier.fillMaxWidth(),enabled=!state.busy,minLines=2,maxLines=4)
      Row(horizontalArrangement=Arrangement.spacedBy(10.dp)){
-      Button(onClick={val value=prompt.trim();if(value.isNotEmpty()){onCreate(value);prompt=""}},enabled=prompt.isNotBlank()&&!state.busy,modifier=Modifier.weight(1f),shape=RoundedCornerShape(12.dp)){Icon(Icons.Rounded.ArrowUpward,null);Spacer(Modifier.width(6.dp));Text(if(state.busy) "Working…" else "Start mission")}
+      MaranPrimaryButton(label=if(state.busy) "Working…" else "Start mission",onClick={val value=prompt.trim();if(value.isNotEmpty()){onCreate(value);prompt=""}},enabled=prompt.isNotBlank()&&!state.busy,modifier=Modifier.weight(1f),icon=Icons.Rounded.ArrowUpward)
       FilledTonalIconButton(onClick=onVoice,enabled=!state.busy,modifier=Modifier.size(48.dp)){Icon(Icons.Rounded.Mic,"Speak to MARAN")}
      }
     }
    }
   }
   item {
-   Card(shape=RoundedCornerShape(16.dp),colors=CardDefaults.cardColors(containerColor=Color(0xFF1A243A)),modifier=Modifier.fillMaxWidth()){
-    Column(Modifier.padding(14.dp),verticalArrangement=Arrangement.spacedBy(6.dp)){
-     WakeControl("en-IN",onWakeCommand)
-    }
-   }
+   MaranPanel(Modifier.fillMaxWidth()){ WakeControl("en-IN",onWakeCommand) }
   }
   item {
-   Text("Workspace",style=MaterialTheme.typography.titleLarge,color=Color.White)
+   MaranSectionHeading("Workspace","Your tools and active work")
    Spacer(Modifier.height(10.dp))
    Row(horizontalArrangement=Arrangement.spacedBy(9.dp)){
     DashboardTile("AI chat","Ask anything",Icons.Rounded.AutoAwesome,Modifier.weight(1f),onAi)
@@ -91,7 +87,7 @@ fun PremiumHomeScreen(
    }
   }
   item {
-   Text("Quick starts",style=MaterialTheme.typography.titleLarge,color=Color.White)
+   MaranSectionHeading("Quick starts")
    Spacer(Modifier.height(9.dp))
    actions.forEach { (title,description)->
     OutlinedCard(onClick={prompt=description},modifier=Modifier.fillMaxWidth().padding(bottom=8.dp),shape=RoundedCornerShape(14.dp),colors=CardDefaults.outlinedCardColors(containerColor=Color(0xFF1A243A))) {
@@ -103,10 +99,10 @@ fun PremiumHomeScreen(
    }
   }
   if(state.error!=null) item { Text(state.error,color=Color(0xFFFCA5A5)) }
-  item { Text("Recent missions",style=MaterialTheme.typography.titleLarge,color=Color.White) }
+  item { MaranSectionHeading("Recent missions") }
   if(state.missions.isEmpty()) item { Text("Your missions will appear here.",color=Color(0xFFA5B4CD)) }
   items(state.missions.take(4)){ mission->
-   Surface(color=Color(0xFF1A243A),shape=RoundedCornerShape(14.dp),modifier=Modifier.fillMaxWidth()){
+   Surface(color=MaranTokens.surface,shape=RoundedCornerShape(14.dp),modifier=Modifier.fillMaxWidth()){
     Column(Modifier.padding(14.dp)){Text(mission.objective,color=Color.White,style=MaterialTheme.typography.titleSmall);Text(mission.status.replace('_',' '),color=blue,style=MaterialTheme.typography.labelMedium)}
    }
   }
