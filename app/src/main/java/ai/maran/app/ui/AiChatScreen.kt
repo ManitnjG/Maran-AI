@@ -176,7 +176,7 @@ fun AiChatScreen(
     val scroll=rememberScrollState()
     Column(Modifier.fillMaxSize().imePadding()) {
       Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(scroll).padding(horizontal=16.dp,vertical=12.dp), verticalArrangement=Arrangement.spacedBy(10.dp)) {
-        Text("MARAN AI",style=MaterialTheme.typography.headlineLarge)
+        MaranSectionHeading("MARAN AI","Chat, voice and on-device actions")
         AssistChip(onClick={},label={Text("OpenRouter • Auto Free AI")})
         Text(
             "Primary: $OPENROUTER_NEMOTRON_FREE. If Nemotron is busy, MARAN automatically switches to another free OpenRouter model. Free-tier limits still apply.",
@@ -194,10 +194,7 @@ fun AiChatScreen(
                         visualTransformation=PasswordVisualTransformation(),
                         singleLine=true,modifier=Modifier.fillMaxWidth()
                     )
-                    Button(
-                        onClick={if(vm.saveKey(key)){key="";showKeySetup=false}},
-                        enabled=key.isNotBlank()&&!state.busy
-                    ){Text("Save key")}
+                    MaranPrimaryButton(label="Save key",onClick={if(vm.saveKey(key)){key="";showKeySetup=false}},enabled=key.isNotBlank()&&!state.busy)
                     if(state.keySaved) TextButton(onClick={key="";showKeySetup=false}){Text("Cancel")}
                 }
             }
@@ -229,7 +226,8 @@ fun AiChatScreen(
                         label={Text("தமிழ்")}
                     )
                 }
-                Button(
+                MaranPrimaryButton(
+                    label=if(state.busy) "AI is answering…" else "Speak to MARAN",
                     onClick={
                         if(context.checkSelfPermission(Manifest.permission.RECORD_AUDIO)==PackageManager.PERMISSION_GRANTED) {
                             startVoice(speechLauncher)
@@ -239,9 +237,7 @@ fun AiChatScreen(
                     },
                     enabled=!state.busy,
                     modifier=Modifier.fillMaxWidth()
-                ){
-                    Text(if(state.busy) "AI is answering…" else "🎤 Speak to MARAN")
-                }
+                )
                 lastHeard?.let { Text("Heard: $it",style=MaterialTheme.typography.bodySmall) }
             }
         }
@@ -260,25 +256,26 @@ fun AiChatScreen(
 
       } // Scrollable conversation
       Column(Modifier.fillMaxWidth().padding(horizontal=16.dp,vertical=8.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
-        OutlinedTextField(
+        MaranInput(
             value=input,onValueChange={input=it},
             enabled=!state.busy,
-            label={Text(if(state.keySaved) "Ask MARAN AI" else "Ask about your phone, or save an AI key")},
+            label=if(state.keySaved) "Ask MARAN AI" else "Ask about your phone, or save an AI key",
             modifier=Modifier.fillMaxWidth(),
             maxLines=6
         )
 
         if(state.busy) {
             LinearProgressIndicator(Modifier.fillMaxWidth())
-            OutlinedButton(onClick=vm::stop){Text("Stop")}
+            MaranSecondaryButton(label="Stop",onClick=vm::stop)
         } else {
             Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
-                Button(
+                MaranPrimaryButton(
+                    label="Send",
                     onClick={speakNextReply=false;dispatchCommand(input);input=""},
                     enabled=input.isNotBlank()&&(state.keySaved||vm.supportsLocal(input)||phoneCommandTarget(input)!=null||realWorldCommand(input)!=null||LocalCommandEngine.parse(input)!=null||screenCommand(input)||DeviceInventoryCommand.matches(input)),
                     modifier=Modifier.weight(1f)
-                ){Text("Send")}
-                OutlinedButton(onClick=vm::clear,enabled=state.messages.isNotEmpty()){Text("Clear")}
+                )
+                MaranSecondaryButton(label="Clear",onClick=vm::clear,enabled=state.messages.isNotEmpty())
             }
         }
       }
