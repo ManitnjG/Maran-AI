@@ -14,6 +14,7 @@ _READ_TOOLS = (
     ToolSpec("public_web_page","read_public_web","none",False,"available"),
     ToolSpec("mission_memory","read_workspace_memory","none",False,"available"),
     ToolSpec("skill_registry","read_learned_skills","none",False,"available"),
+    ToolSpec("mission_context","read_outputs","none",False,"available"),
 )
 
 def registry():
