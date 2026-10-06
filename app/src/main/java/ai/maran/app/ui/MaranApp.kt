@@ -58,7 +58,7 @@ private enum class Tab(val label:String,val icon:ImageVector){Home("Home",Icons.
       onWakeCommand={command->pendingVoiceCommand=command;tab=Tab.Ai}
      )
      Tab.Missions -> MissionScreen(state,vm::decide,vm::run,vm::stop,vm::refresh,vm::exportMission)
-     Tab.Workforce -> WorkforceScreen(state.missions,state.workers,vm::stopWorker,vm::createWorker)
+     Tab.Workforce -> WorkforceScreen(state.missions,state.workers,state.learnedSkills,vm::stopWorker,vm::createWorker)
      Tab.Tools -> ToolsScreen(state,vm)
     }
    }
@@ -84,10 +84,82 @@ private enum class Tab(val label:String,val icon:ImageVector){Home("Home",Icons.
  }
 }
 @Composable private fun MissionScreen(state:MaranUiState,onDecision:(String,Boolean)->Unit,onRun:(String)->Unit,onStop:(String)->Unit,onRefresh:()->Unit,onExport:(String)->Unit){Column(Modifier.fillMaxSize().padding(20.dp)){MaranSectionHeading("Missions","Manage plans and approvals");MaranSecondaryButton("Refresh",onRefresh);state.error?.let{Text(it,color=MaterialTheme.colorScheme.error)};Spacer(Modifier.height(12.dp));LazyColumn(verticalArrangement=Arrangement.spacedBy(12.dp)){items(state.missions){m->MissionCard(m,if(m.status=="waiting_approval") onDecision else null,onRun,onStop,onExport)}}}}
-@Composable private fun MissionCard(m:RemoteMission,onDecision:((String,Boolean)->Unit)?,onRun:((String)->Unit)?=null,onStop:((String)->Unit)?=null,onExport:((String)->Unit)?=null){Card(Modifier.fillMaxWidth()){Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(7.dp)){Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){Text(m.objective,style=MaterialTheme.typography.titleMedium,modifier=Modifier.weight(1f));AssistChip(onClick={},label={Text(m.status.replace('_',' '))})};Text(m.assigned_agents.joinToString(" · "),color=MaterialTheme.colorScheme.onSurfaceVariant);m.plan.forEach{step->Text("• "+step.title+" — "+step.status,style=MaterialTheme.typography.bodySmall);step.output?.let{androidx.compose.foundation.text.selection.SelectionContainer{Text(it)}};step.evidence?.let{e->e.retrieved_at?.let{Text("Retrieved: "+it,style=MaterialTheme.typography.bodySmall)};e.sources.forEach{url->val handler=androidx.compose.ui.platform.LocalUriHandler.current;TextButton(onClick={try{handler.openUri(url)}catch(_:Exception){}}){Text(url)}}};step.error?.let{Text(it,color=MaterialTheme.colorScheme.error)}};m.result?.summary?.let{Text(it,style=MaterialTheme.typography.bodyMedium)};if(onExport!=null){TextButton(onClick={onExport(m.id)}){Text("Export results")}};m.result?.note?.let{Text(it,style=MaterialTheme.typography.bodySmall)};if(onRun!=null&&m.status in listOf("blocked","failed","running")){TextButton(onClick={onRun(m.id)}){Text("Run / retry")}};if(onStop!=null&&m.status !in listOf("completed","cancelled")){TextButton(onClick={onStop(m.id)}){Text("Stop mission")}};if(m.status=="completed"||m.status=="failed"||m.status=="blocked"){Text("Verification: "+m.verification,color=MaterialTheme.colorScheme.onSurfaceVariant)};if(onDecision!=null){Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){OutlinedButton(onClick={onDecision(m.id,false)}){Text("Reject")};Button(onClick={onDecision(m.id,true)}){Text("Approve")}}}}}}
+@Composable private fun MissionCard(
+ m:RemoteMission,
+ onDecision:((String,Boolean)->Unit)?,
+ onRun:((String)->Unit)?=null,
+ onStop:((String)->Unit)?=null,
+ onExport:((String)->Unit)?=null
+){
+ MaranPanel(Modifier.fillMaxWidth()){
+  Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.Top){
+   Text(m.objective,style=MaterialTheme.typography.titleMedium,modifier=Modifier.weight(1f))
+   AssistChip(onClick={},label={Text(m.status.replace('_',' '))})
+  }
+  if(m.autonomy_enabled){
+   Text("Autonomous • cycle ${m.cycle}/${m.max_cycles}",style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.primary)
+  }
+  if(m.assigned_agents.isNotEmpty()){
+   Text(m.assigned_agents.joinToString(" · "),color=MaterialTheme.colorScheme.onSurfaceVariant,style=MaterialTheme.typography.bodySmall)
+  }
+  m.plan.forEach{step->
+   val detail=buildString{
+    append("• ");append(step.title);append(" — ");append(step.status)
+    if(step.attempts>0) append(" • attempt ${step.attempts}")
+    if(step.risk_level!="auto") append(" • ${step.risk_level.replace('_',' ')}")
+    step.tool_id?.let{append(" • tool ");append(it.replace('_',' '))}
+   }
+   Text(detail,style=MaterialTheme.typography.bodySmall)
+   step.approval_reason?.let{Text(it,style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)}
+   step.output?.let{androidx.compose.foundation.text.selection.SelectionContainer{Text(it)}}
+   step.evidence?.let{e->
+    e.retrieved_at?.let{Text("Retrieved: "+it,style=MaterialTheme.typography.bodySmall)}
+    e.sources.forEach{url->
+     val handler=androidx.compose.ui.platform.LocalUriHandler.current
+     TextButton(onClick={try{handler.openUri(url)}catch(_:Exception){}}){Text(url)}
+    }
+   }
+   step.error?.let{Text(it,color=MaterialTheme.colorScheme.error,style=MaterialTheme.typography.bodySmall)}
+  }
+  m.result?.summary?.let{Text(it,style=MaterialTheme.typography.bodyMedium)}
+  m.result?.note?.let{Text(it,style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)}
+  if(m.events.isNotEmpty()){
+   Text("Agent activity",style=MaterialTheme.typography.titleSmall)
+   m.events.takeLast(5).forEach{event->
+    val extra=listOfNotNull(
+     event.cycle?.let{"cycle $it"},
+     event.step_id,
+     event.reason,
+     event.outcome,
+     event.name
+    ).joinToString(" • ")
+    Text("• "+event.type.replace('_',' ')+(if(extra.isBlank())"" else " — $extra"),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+   }
+  }
+  Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){
+   if(onExport!=null) MaranSecondaryButton("Export",onClick={onExport(m.id)})
+   if(onRun!=null&&m.status in listOf("blocked","failed","running")) MaranPrimaryButton("Continue",onClick={onRun(m.id)})
+  }
+  if(onStop!=null&&m.status !in listOf("completed","cancelled")){
+   MaranSecondaryButton("Stop mission",onClick={onStop(m.id)})
+  }
+  if(m.status in listOf("completed","failed","blocked")){
+   Text("Verification: "+m.verification,color=MaterialTheme.colorScheme.onSurfaceVariant)
+  }
+  if(onDecision!=null){
+   Text("MARAN is waiting for your approval before consequential work.",style=MaterialTheme.typography.bodySmall)
+   Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){
+    MaranSecondaryButton("Reject",onClick={onDecision(m.id,false)})
+    MaranPrimaryButton("Approve",onClick={onDecision(m.id,true)})
+   }
+  }
+ }
+}
+
 @Composable private fun WorkforceScreen(
  missions:List<RemoteMission>,
  workers:List<ai.maran.app.data.WorkerDto>,
+ learnedSkills:List<ai.maran.app.data.LearnedSkillDto>,
  onStop:(String)->Unit,
  onCreate:(String,List<String>)->Unit
 ){
@@ -150,6 +222,17 @@ private enum class Tab(val label:String,val icon:ImageVector){Home("Home",Icons.
       Text(w.skills.joinToString(" • ").ifBlank{"General assistant"},color=MaterialTheme.colorScheme.onSurfaceVariant)
      }
      IconButton(onClick={onStop(w.id)}){Icon(Icons.Rounded.DeleteOutline,"Remove worker")}
+    }
+   }
+  }
+
+  if(learnedSkills.isNotEmpty()){
+   MaranSectionHeading("Learned workflows","Successful worker combinations MARAN can reuse")
+   learnedSkills.take(8).forEach{skill->
+    MaranPanel(Modifier.fillMaxWidth()){
+     Text(skill.name,style=MaterialTheme.typography.titleSmall)
+     Text(skill.agents.joinToString(" • "),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+     Text("Used successfully "+skill.success_count+" time"+if(skill.success_count==1)"" else "s",style=MaterialTheme.typography.labelSmall)
     }
    }
   }

@@ -4,16 +4,20 @@ import os
 import secrets
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
-from .models import Mission, MissionCreate, MissionStatus, ApprovalDecision, StopRequest, VoiceCommand, WorkerCreate
+from .models import Mission, MissionCreate, MissionStatus, ApprovalDecision, StopRequest, VoiceCommand, WorkerCreate, MemoryWrite
 from .planner import local_plan
 from .store import store
 from .executor import execute_local
+from .autonomous import run_autonomous
+from .skills import skill_registry
+from .memory import memory_store
 from .manager import manager
 from .voice import interpret
 from .worker_factory import factory
 from .context import context_vault
 from .providers import configured_router
 from .router import ProviderError
+from .tool_registry import registry as tool_registry
 
 @asynccontextmanager
 async def lifespan(app):
@@ -31,7 +35,7 @@ async def lifespan(app):
     for task in tasks: task.cancel()
     await asyncio.gather(*tasks, return_exceptions=True)
 
-app=FastAPI(title="MARAN Orchestrator",version="0.5.0",lifespan=lifespan)
+app=FastAPI(title="MARAN Orchestrator",version="0.6.0",lifespan=lifespan)
 
 # Run one ASGI worker: active task ownership is process-local.
 active_runs: dict[str, asyncio.Task] = {}
@@ -47,6 +51,8 @@ async def authenticate(request: Request, call_next):
 
 async def execute_saved(m):
     try:
+        if m.autonomy_enabled:
+            return await run_autonomous(m, checkpoint=store.put)
         return await execute_local(m, checkpoint=store.put)
     finally:
         active_runs.pop(m.id, None)
@@ -63,8 +69,8 @@ def agents():
 
 @app.post("/missions",response_model=Mission)
 def create_mission(req:MissionCreate):
-    m=Mission(objective=req.objective,workspace_id=req.workspace_id,status=MissionStatus.planning)
-    m.events.append({"type":"mission_created"})
+    m=Mission(objective=req.objective,workspace_id=req.workspace_id,status=MissionStatus.planning,autonomy_enabled=req.autonomous,max_cycles=req.max_cycles)
+    m.events.append({"type":"mission_created","autonomous":req.autonomous,"max_cycles":req.max_cycles})
     m=manager.assign(m)
     return store.put(m)
 
@@ -81,6 +87,49 @@ async def run_mission(mission_id:str):
         if task.cancelled():
             return store.get(mission_id)
         raise
+
+@app.post("/missions/{mission_id}/autonomous-run",response_model=Mission)
+async def autonomous_run(mission_id:str):
+    m=store.get(mission_id)
+    if not m: raise HTTPException(404,"Mission not found")
+    if not m.autonomy_enabled:
+        m.autonomy_enabled=True
+        m.events.append({"type":"autonomy_enabled","note":"Enabled by explicit autonomous-run request"})
+        store.put(m)
+    return await run_mission(mission_id)
+
+@app.get("/missions/{mission_id}/events")
+def mission_events(mission_id:str):
+    m=store.get(mission_id)
+    if not m: raise HTTPException(404,"Mission not found")
+    return m.events
+
+@app.get("/skills")
+def learned_skills(workspace_id:str="default"):
+    return skill_registry.all(workspace_id)
+
+@app.delete("/skills/{skill_id}")
+def forget_skill(skill_id:str,workspace_id:str="default"):
+    if not skill_registry.delete(skill_id,workspace_id):
+        raise HTTPException(404,"Learned skill not found")
+    return {"ok":True,"skill_id":skill_id}
+
+@app.get("/memory")
+def workspace_memory(workspace_id:str="default"):
+    return memory_store.all(workspace_id)
+
+@app.post("/memory")
+def remember(item:MemoryWrite):
+    try:
+        return memory_store.set(item.workspace_id,item.key,item.value)
+    except ValueError as exc:
+        raise HTTPException(422,str(exc)) from exc
+
+@app.delete("/memory/{key}")
+def forget_memory(key:str,workspace_id:str="default"):
+    if not memory_store.delete(workspace_id,key):
+        raise HTTPException(404,"Memory item not found")
+    return {"ok":True,"key":key}
 
 @app.get("/missions",response_model=list[Mission])
 def list_missions(): return store.all()
@@ -171,6 +220,10 @@ class PageRequest(BaseModel):
 @app.get('/capabilities')
 def get_capabilities():
     return capabilities()
+
+@app.get('/tools/registry')
+def get_tool_registry():
+    return tool_registry()
 
 @app.post('/diagnostics')
 async def check_connections():

@@ -4,7 +4,7 @@ plugins {
 android {
  namespace="ai.maran.app"; compileSdk=35
  defaultConfig {
-  applicationId="ai.maran.app"; minSdk=26; targetSdk=35; versionCode=12; versionName="0.9.3"
+  applicationId="ai.maran.app"; minSdk=26; targetSdk=35; versionCode=13; versionName="0.10.0"
   val apiUrl=(project.findProperty("MARAN_API_BASE_URL") as String?) ?: "http://10.0.2.2:8000/"
   buildConfigField("String","MARAN_API_BASE_URL","\"${apiUrl}\"")
  }
@@ -22,6 +22,7 @@ dependencies {
  implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")
  implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.8.7")
  implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
+ implementation("androidx.work:work-runtime-ktx:2.10.0")
  implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
  implementation("com.squareup.retrofit2:retrofit:2.11.0")
  implementation("com.squareup.retrofit2:converter-gson:2.11.0")

@@ -1,4 +1,5 @@
 import json, sqlite3
+from datetime import datetime, timezone
 from threading import RLock
 from .models import Mission
 from .config import settings
@@ -15,6 +16,7 @@ class MissionStore:
             self.db.executemany("INSERT INTO missions(id,payload,created_at) VALUES(?,?,?)",
                 [(m.id,m.model_dump_json(),m.created_at.isoformat()) for m in missions])
     def put(self,m:Mission)->Mission:
+        m.updated_at=datetime.now(timezone.utc)
         with self.lock, self.db:
             self.db.execute("INSERT OR REPLACE INTO missions(id,payload,created_at) VALUES(?,?,?)",(m.id,m.model_dump_json(),m.created_at.isoformat()))
         return m

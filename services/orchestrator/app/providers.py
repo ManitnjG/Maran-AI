@@ -1,6 +1,7 @@
 import os
 import httpx
 from .router import ModelRouter,ProviderError,QuotaError
+from .config import settings
 
 from .zen_gateway import OpenCodeZenProvider
 
@@ -24,5 +25,28 @@ class OpenAICompatibleProvider:
         except (ValueError,KeyError,IndexError,TypeError) as exc:raise ProviderError("invalid_provider_response") from exc
 
 def configured_router()->ModelRouter:
-    # All MARAN reasoning goes through OpenCode. Legacy adapters are not registered.
-    return ModelRouter([OpenCodeZenProvider()])
+    providers = [OpenCodeZenProvider()]
+    # Optional fallbacks are opt-in. Nothing paid is silently enabled.
+    openrouter_model=os.getenv("MARAN_OPENROUTER_MODEL","").strip()
+    if os.getenv("MARAN_OPENROUTER_API_KEY","").strip() and openrouter_model:
+        providers.append(OpenAICompatibleProvider(
+            "openrouter",
+            os.getenv("MARAN_OPENROUTER_BASE_URL","https://openrouter.ai/api/v1"),
+            "MARAN_OPENROUTER_API_KEY",
+            openrouter_model,
+            requires_key=True,
+        ))
+    ollama_model=os.getenv("MARAN_OLLAMA_MODEL","").strip()
+    if ollama_model:
+        providers.append(OpenAICompatibleProvider(
+            "ollama",
+            os.getenv("MARAN_OLLAMA_BASE_URL","http://127.0.0.1:11434/v1"),
+            "MARAN_OLLAMA_API_KEY",
+            ollama_model,
+            requires_key=False,
+        ))
+    preferred=list(settings.model_order)
+    if preferred:
+        rank={name:i for i,name in enumerate(preferred)}
+        providers.sort(key=lambda provider: rank.get(provider.name,len(rank)))
+    return ModelRouter(providers)

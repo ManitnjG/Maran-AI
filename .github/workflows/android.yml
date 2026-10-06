@@ -55,10 +55,10 @@ jobs:
         with:
           tag_name: preview-${{ github.run_number }}
           target_commitish: ${{ github.sha }}
-          name: MARAN 0.9.3 preview ${{ github.run_number }}
+          name: MARAN 0.10.0 autonomous preview ${{ github.run_number }}
           prerelease: true
           files: app/build/outputs/apk/debug/app-debug.apk
           body: |
             Development APK for testing. This is debug-signed, not a production-signed release.
-            Installed-app inventory and supported native phone commands run locally without an AI key. General OpenRouter chat requires a key saved on the device.
+            Autonomous missions use bounded Manager cycles, retries, verification, learned workflows, WorkManager continuation, and explicit approval gates. Installed-app inventory and supported native phone commands run locally without an AI key. General OpenRouter chat requires a key saved on the device.
             Back up saved work before updating. CI debug-signing keys can differ between runs; if Android rejects an update, uninstalling first erases app-local settings and encrypted keys.

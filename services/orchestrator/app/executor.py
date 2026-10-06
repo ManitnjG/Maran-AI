@@ -37,6 +37,7 @@ async def execute_local(mission: Mission, checkpoint=None) -> Mission:
                               "completed_steps": [], "blocked_steps": [s.id for s in mission.plan]}
             for step in mission.plan:
                 step.status, step.error = "blocked", reason
+                if step.agent != "verifier": step.attempts += 1
             save()
             return mission
         if any(s.requires_approval and not s.approved for s in mission.plan):
@@ -51,12 +52,27 @@ async def execute_local(mission: Mission, checkpoint=None) -> Mission:
         nonlocal research_task
         if step.status in ("completed", "stopped"):
             return
+        if step.risk_level == "blocked":
+            step.status = "blocked"
+            step.error = step.approval_reason or "Protected action cannot be automated"
+            mission.events.append({"type":"step_blocked","step_id":step.id,"reason":"protected_action"})
+            save()
+            return
         if step.requires_approval and not step.approved:
             step.status = "blocked"
-            step.error = "Approval required"
+            step.error = step.approval_reason or "Approval required"
+            return
+        max_attempts = max(1, policy.max_retries + 1)
+        if step.attempts >= max_attempts:
+            step.status = "blocked"
+            step.error = "Retry limit reached"
+            mission.events.append({"type":"step_blocked","step_id":step.id,"reason":"retry_limit"})
+            save()
             return
         async with semaphore:
+            step.attempts += 1
             step.status = "running"
+            mission.events.append({"type":"step_started","step_id":step.id,"attempt":step.attempts})
             save()
             try:
                 if step.agent in ("research", "tour_leads", "seo"):
@@ -105,12 +121,20 @@ async def execute_local(mission: Mission, checkpoint=None) -> Mission:
     for step in mission.plan:
         if step.agent == "verifier" and step.status != "stopped":
             if completed and not blocked:
+                max_attempts = max(1, policy.max_retries + 1)
+                if step.attempts >= max_attempts:
+                    step.status, step.error = "blocked", "Verifier retry limit reached"
+                    blocked.append(step.id)
+                    continue
                 mission.status = MissionStatus.verifying
+                step.attempts += 1
+                mission.events.append({"type":"verification_started","step_id":step.id,"attempt":step.attempts})
                 save()
                 try:
                     step.output, step.provider = await asyncio.wait_for(
                         review_mission(mission, router), timeout=policy.step_timeout_seconds)
                     step.status, step.error = "completed", None
+                    mission.events.append({"type":"verification_completed","step_id":step.id,"provider":step.provider})
                 except (ProviderError, asyncio.TimeoutError) as exc:
                     step.status, step.error = "blocked", str(exc) or "OpenCode review timed out."
                     blocked.append(step.id)
