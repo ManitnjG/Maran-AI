@@ -30,10 +30,11 @@ _CONFIRM = (
 )
 
 def assess(agent: str, title: str, objective: str = "") -> RiskDecision:
-    text = f"{title} {objective}".lower()
-    if any(token in text for token in _PROTECTED):
+    title_text = title.lower()
+    whole_goal = f"{title} {objective}".lower()
+    if any(token in whole_goal for token in _PROTECTED):
         return RiskDecision(BLOCKED, "Protected authentication/security action cannot be automated")
-    if agent == "accounting" or any(token in text for token in _CONFIRM):
+    if agent == "accounting" or any(token in title_text for token in _CONFIRM):
         return RiskDecision(CONFIRM, "Consequential external or financial action requires user approval")
     return RiskDecision(AUTO)
 
