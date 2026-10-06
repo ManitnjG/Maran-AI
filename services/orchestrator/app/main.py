@@ -17,6 +17,7 @@ from .worker_factory import factory
 from .context import context_vault
 from .providers import configured_router
 from .router import ProviderError
+from .tool_registry import registry as tool_registry
 
 @asynccontextmanager
 async def lifespan(app):
@@ -219,6 +220,10 @@ class PageRequest(BaseModel):
 @app.get('/capabilities')
 def get_capabilities():
     return capabilities()
+
+@app.get('/tools/registry')
+def get_tool_registry():
+    return tool_registry()
 
 @app.post('/diagnostics')
 async def check_connections():
