@@ -16,14 +16,19 @@ class Verification(str, Enum):
 class MissionCreate(BaseModel):
     objective: str = Field(min_length=1, max_length=4000)
     workspace_id: str = "default"
+    autonomous: bool = True
+    max_cycles: int = Field(default=4, ge=1, le=10)
 
 class PlanStep(BaseModel):
     id: str
     title: str
     agent: str
     requires_approval: bool = False
+    approval_reason: str | None = None
+    risk_level: str = "auto"
     status: str = "pending"
     approved: bool = False
+    attempts: int = 0
     output: str | None = None
     provider: str | None = None
     error: str | None = None
@@ -35,11 +40,16 @@ class Mission(BaseModel):
     workspace_id: str = "default"
     status: MissionStatus = MissionStatus.queued
     verification: Verification = Verification.pending
-    assigned_agents: list[str] = []
-    plan: list[PlanStep] = []
-    events: list[dict[str, Any]] = []
+    assigned_agents: list[str] = Field(default_factory=list)
+    plan: list[PlanStep] = Field(default_factory=list)
+    events: list[dict[str, Any]] = Field(default_factory=list)
     result: dict[str, Any] | None = None
+    autonomy_enabled: bool = True
+    max_cycles: int = Field(default=4, ge=1, le=10)
+    cycle: int = 0
+    learned_skill_id: str | None = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 class WorkerCreate(BaseModel):
     name: str = Field(min_length=1,max_length=80)
@@ -57,3 +67,8 @@ class StopRequest(BaseModel):
 class ApprovalDecision(BaseModel):
     approved: bool
     note: str | None = None
+
+class MemoryWrite(BaseModel):
+    key: str = Field(min_length=1,max_length=80)
+    value: str = Field(min_length=1,max_length=1000)
+    workspace_id: str = "default"
