@@ -55,12 +55,53 @@ jobs:
           PLAY_MANIFEST="$(find app/build/intermediates -type f -name AndroidManifest.xml -path '*playRelease*' | head -n 1)"
           test -n "$PLAY_MANIFEST"
           echo "Checking $PLAY_MANIFEST"
-          ! grep -q 'android.permission.READ_CONTACTS' "$PLAY_MANIFEST"
-          ! grep -q 'android.permission.BIND_ACCESSIBILITY_SERVICE' "$PLAY_MANIFEST"
-          ! grep -q 'android.accessibilityservice.AccessibilityService' "$PLAY_MANIFEST"
-          ! grep -q 'android.intent.category.LAUNCHER.*android.intent.action.MAIN' "$PLAY_MANIFEST" || true
-          grep -q 'targetSdkVersion="36"' "$PLAY_MANIFEST" || grep -q 'targetSdkVersion="0x24"' "$PLAY_MANIFEST"
-          grep -q 'usesCleartextTraffic="false"' "$PLAY_MANIFEST"
+          python - "$PLAY_MANIFEST" <<'PY'
+          import sys
+          import xml.etree.ElementTree as ET
+
+          path=sys.argv[1]
+          root=ET.parse(path).getroot()
+          A="{http://schemas.android.com/apk/res/android}"
+          permissions={node.get(A+"name") for node in root.findall("uses-permission")}
+          forbidden={
+              "android.permission.READ_CONTACTS",
+              "android.permission.QUERY_ALL_PACKAGES",
+              "android.permission.REQUEST_INSTALL_PACKAGES",
+              "android.permission.READ_SMS",
+              "android.permission.READ_CALL_LOG",
+          }
+          found=permissions & forbidden
+          if found:
+              raise SystemExit("Forbidden Play permission(s): "+", ".join(sorted(found)))
+
+          app=root.find("application")
+          if app is None:
+              raise SystemExit("Merged Play manifest has no application")
+          if app.get(A+"usesCleartextTraffic") != "false":
+              raise SystemExit("Play release must disable cleartext traffic")
+
+          for service in app.findall("service"):
+              if service.get(A+"permission") == "android.permission.BIND_ACCESSIBILITY_SERVICE":
+                  raise SystemExit("Play flavor must not declare an AccessibilityService")
+              for action in service.findall("./intent-filter/action"):
+                  if action.get(A+"name") == "android.accessibilityservice.AccessibilityService":
+                      raise SystemExit("Play flavor contains AccessibilityService intent")
+
+          queries=root.find("queries")
+          if queries is not None:
+              for intent in queries.findall("intent"):
+                  actions={n.get(A+"name") for n in intent.findall("action")}
+                  categories={n.get(A+"name") for n in intent.findall("category")}
+                  if "android.intent.action.MAIN" in actions and "android.intent.category.LAUNCHER" in categories:
+                      raise SystemExit("Play flavor must not declare broad launcher-app inventory visibility")
+
+          uses_sdk=root.find("uses-sdk")
+          target=(uses_sdk.get(A+"targetSdkVersion") if uses_sdk is not None else None)
+          if target not in {"36","0x24"}:
+              raise SystemExit(f"Expected targetSdk 36, got {target!r}")
+
+          print("Play merged-manifest policy checks passed")
+          PY
 
       - uses: actions/upload-artifact@v4
         with:
