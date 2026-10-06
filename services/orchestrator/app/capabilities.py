@@ -26,7 +26,7 @@ def capabilities():
             "tally_writeback": "not_connected", "gst_filing": "not_connected",
             "social_publishing": "not_connected", "wake_word": "not_implemented",
         },
-        "note": "Autonomy is bounded and permission-aware. Public web research can run automatically. Consequential integrations still require explicit confirmation, and CAPTCHA/OTP/password/PIN/CVV/biometric/security prompts are never automated. All AI reasoning uses OpenCode Zen; access is not guaranteed."
+        "note": "Autonomy is bounded and permission-aware. Public web research can run automatically. Consequential integrations still require explicit confirmation, and CAPTCHA/OTP/password/PIN/CVV/biometric/security prompts are never automated. OpenCode is first by default; optional OpenRouter or local Ollama fallbacks are used only when explicitly configured."
     }
 
 
