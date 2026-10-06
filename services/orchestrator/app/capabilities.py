@@ -7,8 +7,8 @@ from .web_tools import research
 def capabilities():
     models = [p.provider.name for p in configured_router().providers]
     return {
-        "version": "0.5.0", "models": models, "ai_engine": "OpenCode Zen",
-        "brain_stages": ["planning", "worker_assignment", "drafts", "research_synthesis", "review"],
+        "version": "0.6.0", "models": models, "ai_engine": "OpenCode Zen",
+        "brain_stages": ["planning", "worker_assignment", "tool_execution", "observe", "verification", "retry", "skill_learning"],
         "access_tested": False,
         "web_enabled": os.getenv("MARAN_WEB_ENABLED", "true").lower() == "true",
         "authentication_enabled": bool(os.getenv("MARAN_ACCESS_TOKEN")),
@@ -17,12 +17,16 @@ def capabilities():
             "public_research": "available" if os.getenv("MARAN_WEB_ENABLED", "true").lower() == "true" else "disabled",
             "draft_generation": "needs_authorized_opencode_access",
             "mission_planning": "opencode",
+            "autonomous_runtime": "bounded_safe_cycles",
+            "persistent_memory": "local_sqlite_non_secret",
+            "learned_skills": "local_sqlite_successful_workflows",
+            "approval_policy": "deterministic_application_enforced",
             "output_review": "opencode",
             "tally_voucher_export": "available_for_review",
             "tally_writeback": "not_connected", "gst_filing": "not_connected",
             "social_publishing": "not_connected", "wake_word": "not_implemented",
         },
-        "note": "All AI reasoning uses OpenCode Zen, free models only. Access is not guaranteed; run connection checks. Web queries are sent to Exa; keyless usage is rate limited."
+        "note": "Autonomy is bounded and permission-aware. Public web research can run automatically. Consequential integrations still require explicit confirmation, and CAPTCHA/OTP/password/PIN/CVV/biometric/security prompts are never automated. All AI reasoning uses OpenCode Zen; access is not guaranteed."
     }
 
 
