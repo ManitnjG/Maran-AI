@@ -17,6 +17,7 @@ data class PlanStep(
  val requires_approval:Boolean=false,
  val approval_reason:String?=null,
  val risk_level:String="auto",
+ val tool_id:String?=null,
  val status:String="pending",
  val approved:Boolean=false,
  val attempts:Int=0,
