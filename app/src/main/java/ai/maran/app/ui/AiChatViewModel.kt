@@ -5,6 +5,7 @@ import android.os.Build
 import android.os.BatteryManager
 import android.content.Context
 import androidx.lifecycle.AndroidViewModel
+import ai.maran.app.BuildConfig
 import androidx.lifecycle.viewModelScope
 import ai.maran.app.data.AiMessage
 import ai.maran.app.data.OpenRouterClient
