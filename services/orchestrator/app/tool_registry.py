@@ -27,3 +27,10 @@ def registry():
             "available_status":meta.get("status","unknown"),
         })
     return out
+
+def tool_for_agent(agent_id: str) -> str | None:
+    if agent_id in {"research","tour_leads","seo"}:
+        return "public_web_search"
+    if agent_id == "verifier":
+        return "mission_context"
+    return None
