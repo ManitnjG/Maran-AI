@@ -1,3 +1,1 @@
-<resources>
-  <string name="device_control_description">Optional MARAN voice screen control. When enabled, MARAN can read visible accessible text and activate matching controls only when you ask it to. It does not record passive activity. Do not use it for passwords, payments, security prompts, or verification.</string>
-</resources>
+<resources/>\n
