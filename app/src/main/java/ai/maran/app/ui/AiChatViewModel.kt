@@ -112,9 +112,13 @@ class AiChatViewModel(application:Application):AndroidViewModel(application) {
             mutable.update { it.copy(error="Please keep each message under 12,000 characters.") }
             return
         }
-        // Read the actual phone inventory locally. Do not route app names to OpenRouter.
+        // App inventory is intentionally omitted from the Google Play flavor.
+        // The Full flavor may read launchable apps locally; results never enter cloud AI context.
         if (DeviceInventoryCommand.matches(text)) {
-            recordPhoneAction(text.trim(), DeviceAppInventory.listLaunchable(getApplication()))
+            val result = if (BuildConfig.PLAY_DISTRIBUTION)
+                "Broad launcher-app inventory is not included in the Google Play build."
+            else DeviceAppInventory.listLaunchable(getApplication())
+            recordPhoneAction(text.trim(), result)
             return
         }
         // A real, local tool: answer supported device questions without a cloud model or API key.
