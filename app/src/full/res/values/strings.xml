@@ -1,0 +1,3 @@
+<resources>
+ <string name="device_control_description">Optional, user-initiated MARAN screen control. When enabled, it can read visible accessible text and activate matching controls only after your direct command. It does not passively record activity and is not used for passwords, OTP, CAPTCHA, payments, permissions, sign-in or security prompts.</string>
+</resources>
