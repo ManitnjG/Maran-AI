@@ -9,6 +9,7 @@ on:
       - 'gradle.properties'
       - '.github/workflows/android.yml'
       - '.github/workflows/release.yml'
+      - '.github/workflows/play-release.yml'
   pull_request:
     paths:
       - 'app/**'
@@ -16,10 +17,14 @@ on:
       - 'settings.gradle.kts'
       - 'gradle.properties'
       - '.github/workflows/android.yml'
+      - '.github/workflows/release.yml'
+      - '.github/workflows/play-release.yml'
   workflow_dispatch:
+
 concurrency:
   group: android-${{ github.ref }}
   cancel-in-progress: true
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -31,34 +36,63 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - name: Install Android 16 SDK
+        run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
       - uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: '8.9'
-      - name: Build debug APK
+          gradle-version: '8.11.1'
+
+      - name: Build and test Play and Full variants
         env:
           MARAN_API_BASE_URL: ${{ secrets.MARAN_API_BASE_URL }}
         run: |
-          if [ -n "$MARAN_API_BASE_URL" ]; then
-            gradle :app:testDebugUnitTest :app:assembleDebug --stacktrace "-PMARAN_API_BASE_URL=$MARAN_API_BASE_URL"
-          else
-            gradle :app:testDebugUnitTest :app:assembleDebug --stacktrace
-          fi
+          API_URL="${MARAN_API_BASE_URL:-https://example.invalid/}"
+          gradle             :app:testPlayDebugUnitTest             :app:testFullDebugUnitTest             :app:assemblePlayDebug             :app:assembleFullDebug             :app:bundlePlayRelease             --stacktrace "-PMARAN_API_BASE_URL=$API_URL"
+
+      - name: Verify Play manifest excludes restricted surfaces
+        run: |
+          PLAY_MANIFEST="$(find app/build/intermediates -type f -name AndroidManifest.xml -path '*playRelease*' | head -n 1)"
+          test -n "$PLAY_MANIFEST"
+          echo "Checking $PLAY_MANIFEST"
+          ! grep -q 'android.permission.READ_CONTACTS' "$PLAY_MANIFEST"
+          ! grep -q 'android.permission.BIND_ACCESSIBILITY_SERVICE' "$PLAY_MANIFEST"
+          ! grep -q 'android.accessibilityservice.AccessibilityService' "$PLAY_MANIFEST"
+          ! grep -q 'android.intent.category.LAUNCHER.*android.intent.action.MAIN' "$PLAY_MANIFEST" || true
+          grep -q 'targetSdkVersion="36"' "$PLAY_MANIFEST" || grep -q 'targetSdkVersion="0x24"' "$PLAY_MANIFEST"
+          grep -q 'usesCleartextTraffic="false"' "$PLAY_MANIFEST"
+
       - uses: actions/upload-artifact@v4
         with:
-          name: maran-debug-apk
-          path: app/build/outputs/apk/debug/app-debug.apk
+          name: maran-play-debug-apk
+          path: app/build/outputs/apk/play/debug/app-play-debug.apk
           retention-days: 14
           if-no-files-found: error
-      - name: Publish installable preview
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: maran-full-debug-apk
+          path: app/build/outputs/apk/full/debug/app-full-debug.apk
+          retention-days: 14
+          if-no-files-found: error
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: maran-play-release-aab-unsigned
+          path: app/build/outputs/bundle/playRelease/app-play-release.aab
+          retention-days: 14
+          if-no-files-found: error
+
+      - name: Publish Full installable preview
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: preview-${{ github.run_number }}
           target_commitish: ${{ github.sha }}
-          name: MARAN 0.10.0 autonomous preview ${{ github.run_number }}
+          name: MARAN 0.10.1 Full preview ${{ github.run_number }}
           prerelease: true
-          files: app/build/outputs/apk/debug/app-debug.apk
+          files: app/build/outputs/apk/full/debug/app-full-debug.apk
           body: |
-            Development APK for testing. This is debug-signed, not a production-signed release.
-            Autonomous missions use bounded Manager cycles, retries, verification, learned workflows, WorkManager continuation, and explicit approval gates. Installed-app inventory and supported native phone commands run locally without an AI key. General OpenRouter chat requires a key saved on the device.
-            Back up saved work before updating. CI debug-signing keys can differ between runs; if Android rejects an update, uninstalling first erases app-local settings and encrypted keys.
+            Development Full APK for private testing. Debug-signed, not production-signed.
+            This Full build includes optional user-initiated Accessibility screen controls and broader local launcher-app visibility.
+            Do not upload this Full flavor to Google Play. Use the Play flavor for store distribution.
