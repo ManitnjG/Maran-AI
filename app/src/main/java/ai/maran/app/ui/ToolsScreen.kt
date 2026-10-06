@@ -58,7 +58,26 @@ import java.time.LocalDate
  var number by remember{mutableStateOf("")}
  var date by remember{mutableStateOf(LocalDate.now().toString())}
  var amount by remember{mutableStateOf("")}
+ var memoryKey by remember{mutableStateOf("")}
+ var memoryValue by remember{mutableStateOf("")}
  Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){
+  MaranSectionHeading("Autonomous agent runtime","Safe work can continue through bounded background cycles")
+  Text("MARAN plans, assigns workers, executes supported tools, observes results, verifies outputs, retries eligible failures, and learns reusable workflows. Consequential actions still require approval. OTP, CAPTCHA, passwords, PINs, CVV, biometrics and security prompts are never automated.",style=MaterialTheme.typography.bodySmall)
+  Text("Learned workflows: "+state.learnedSkills.size,style=MaterialTheme.typography.bodySmall)
+  Text("Background continuation uses Android WorkManager and runs only when network access is available.",style=MaterialTheme.typography.bodySmall)
+
+  MaranSectionHeading("Workspace memory","Preferences and reusable context only — do not store secrets")
+  MaranInput(memoryKey,{memoryKey=it},label="Memory key",modifier=Modifier.fillMaxWidth())
+  MaranInput(memoryValue,{memoryValue=it},label="Memory value",modifier=Modifier.fillMaxWidth(),maxLines=4)
+  MaranPrimaryButton(label="Remember",onClick={vm.saveMemory(memoryKey,memoryValue);memoryKey="";memoryValue=""},enabled=memoryKey.isNotBlank()&&memoryValue.isNotBlank())
+  state.memory.forEach{item->
+   MaranPanel(Modifier.fillMaxWidth()){
+    Text(item.key,style=MaterialTheme.typography.titleSmall)
+    Text(item.value,style=MaterialTheme.typography.bodySmall)
+    TextButton(onClick={vm.forgetMemory(item.key)}){Text("Forget")}
+   }
+  }
+
   MaranSectionHeading("Voice Device Control","Manage Android permissions safely")
   Text(if(deviceControlEnabled) "Device Control is enabled" else "Device Control is disabled")
   Text("Optional screen reading, Back, Home, scrolling and exact-label tapping. Enable MARAN Device Control manually in Android Accessibility settings. Do not use it to approve payments, authentication or security prompts.",style=MaterialTheme.typography.bodySmall)
