@@ -1,11 +1,12 @@
-name: Release APK
+name: Release Full APK
 on:
   workflow_dispatch:
     inputs:
       tag:
         description: Release tag
         required: true
-        default: v0.3.0-preview
+        default: v0.10.1-full-preview
+
 jobs:
   release:
     runs-on: ubuntu-latest
@@ -17,22 +18,24 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
       - uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: '8.9'
-      - name: Build debug preview
+          gradle-version: '8.11.1'
+      - name: Build private Full debug preview
         env:
           MARAN_API_BASE_URL: ${{ secrets.MARAN_API_BASE_URL }}
         run: |
-          if [ -n "$MARAN_API_BASE_URL" ]; then
-            gradle :app:assembleDebug --stacktrace "-PMARAN_API_BASE_URL=$MARAN_API_BASE_URL"
-          else
-            gradle :app:assembleDebug --stacktrace
-          fi
-      - run: cp app/build/outputs/apk/debug/app-debug.apk MARAN-preview.apk
+          API_URL="${MARAN_API_BASE_URL:-https://example.invalid/}"
+          gradle :app:assembleFullDebug --stacktrace "-PMARAN_API_BASE_URL=$API_URL"
+      - run: cp app/build/outputs/apk/full/debug/app-full-debug.apk MARAN-full-preview.apk
       - uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ inputs.tag }}
-          files: MARAN-preview.apk
+          files: MARAN-full-preview.apk
           prerelease: true
           generate_release_notes: true
+          body: |
+            Private Full preview. Do not upload this variant to Google Play.
+            It includes optional user-initiated Accessibility screen controls and broader local launcher visibility.
