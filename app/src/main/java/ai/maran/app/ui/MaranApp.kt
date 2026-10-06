@@ -107,6 +107,7 @@ private enum class Tab(val label:String,val icon:ImageVector){Home("Home",Icons.
     append("• ");append(step.title);append(" — ");append(step.status)
     if(step.attempts>0) append(" • attempt ${step.attempts}")
     if(step.risk_level!="auto") append(" • ${step.risk_level.replace('_',' ')}")
+    step.tool_id?.let{append(" • tool ");append(it.replace('_',' '))}
    }
    Text(detail,style=MaterialTheme.typography.bodySmall)
    step.approval_reason?.let{Text(it,style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)}
