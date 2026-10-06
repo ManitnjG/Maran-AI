@@ -2,17 +2,19 @@ import asyncio
 import os
 from .providers import configured_router
 from .web_tools import research
+from .integrations import integration_status
 
 
 def capabilities():
     models = [p.provider.name for p in configured_router().providers]
     return {
-        "version": "0.6.0", "models": models, "ai_engine": "OpenCode Zen",
+        "version": "0.6.0", "models": models, "ai_engine": "provider_router",
         "brain_stages": ["planning", "worker_assignment", "tool_execution", "observe", "verification", "retry", "skill_learning"],
         "access_tested": False,
         "web_enabled": os.getenv("MARAN_WEB_ENABLED", "true").lower() == "true",
         "authentication_enabled": bool(os.getenv("MARAN_ACCESS_TOKEN")),
         "storage": os.getenv("MARAN_STORAGE_MODE", "local_sqlite"),
+        "integrations": integration_status(),
         "features": {
             "public_research": "available" if os.getenv("MARAN_WEB_ENABLED", "true").lower() == "true" else "disabled",
             "draft_generation": "needs_authorized_opencode_access",
@@ -36,7 +38,7 @@ async def diagnostics():
             _, name = await asyncio.wait_for(configured_router().complete("Reply with OK only."), 45)
             return {"ok": True, "message": "Model responded", "provider": name}
         except Exception:
-            return {"ok": False, "message": "OpenCode did not respond; check authorized OpenCode access"}
+            return {"ok": False, "message": "No configured model provider responded"}
     async def web():
         try:
             result = await asyncio.wait_for(research("Tamil Nadu Tourism official website"), 45)
