@@ -26,6 +26,7 @@ class PlanStep(BaseModel):
     requires_approval: bool = False
     approval_reason: str | None = None
     risk_level: str = "auto"
+    tool_id: str | None = None
     status: str = "pending"
     approved: bool = False
     attempts: int = 0
