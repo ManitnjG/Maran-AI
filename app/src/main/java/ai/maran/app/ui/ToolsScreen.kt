@@ -1,12 +1,6 @@
 package ai.maran.app.ui
 
 import android.content.Intent
-import android.net.Uri
-import android.provider.Settings
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
-import androidx.lifecycle.compose.LocalLifecycleOwner
-import ai.maran.app.control.MaranAccessibilityService
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import kotlinx.coroutines.Dispatchers
@@ -25,18 +19,8 @@ import java.time.LocalDate
 
 @Composable fun ToolsScreen(state:MaranUiState,vm:MaranViewModel){
  val context=LocalContext.current
- val owner=LocalLifecycleOwner.current
- var deviceControlEnabled by remember { mutableStateOf(MaranAccessibilityService.available()) }
- DisposableEffect(owner) {
-  val observer=LifecycleEventObserver { _,event ->
-   if(event==Lifecycle.Event.ON_RESUME) deviceControlEnabled=MaranAccessibilityService.available()
-  }
-  owner.lifecycle.addObserver(observer)
-  onDispose { owner.lifecycle.removeObserver(observer) }
- }
  val scope=rememberCoroutineScope()
  var fileStatus by remember{mutableStateOf<String?>(null)}
- var installedApps by remember { mutableStateOf<String?>(null) }
  var pendingExport by remember{mutableStateOf<ai.maran.app.data.ExportResult?>(null)}
  val saveFile=rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")){uri->
   val content=pendingExport?.content
@@ -78,29 +62,7 @@ import java.time.LocalDate
    }
   }
 
-  MaranSectionHeading("Voice Device Control","Manage Android permissions safely")
-  Text(if(deviceControlEnabled) "Device Control is enabled" else "Device Control is disabled")
-  Text("Optional screen reading, Back, Home, scrolling and exact-label tapping. Enable MARAN Device Control manually in Android Accessibility settings. Do not use it to approve payments, authentication or security prompts.",style=MaterialTheme.typography.bodySmall)
-  Text("If Android shows Restricted setting: open MARAN App Info, tap the three-dot menu (if available), choose Allow restricted settings, and approve with your screen lock. Only do this for an APK you trust. Then enable MARAN Device Control in Accessibility settings. MARAN cannot bypass this Android protection.",style=MaterialTheme.typography.bodySmall)
-  OutlinedButton(onClick={
-    try {
-     context.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
-      Uri.fromParts("package",context.packageName,null)))
-    } catch(_:Exception) { fileStatus="Could not open MARAN App Info" }
-  }) { Text("1. Open MARAN App Info") }
-  OutlinedButton(onClick={
-    try { context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) }
-    catch(_:Exception) { fileStatus="Accessibility settings unavailable on this phone" }
-  }) { Text("2. Open Accessibility settings") }
-
-  MaranSectionHeading("Apps on this phone")
-  Text("This reads visible launchable apps directly from Android. No AI key or Accessibility permission is required, and the list is not sent to OpenRouter.",style=MaterialTheme.typography.bodySmall)
-  MaranSecondaryButton(label="List installed apps",onClick={installedApps=DeviceAppInventory.listLaunchable(context)})
-  installedApps?.let { result ->
-   androidx.compose.foundation.text.selection.SelectionContainer {
-    Text(result,style=MaterialTheme.typography.bodySmall)
-   }
-  }
+  DistributionDeviceControls { fileStatus=it }
 
   MaranSectionHeading("Readiness")
   state.capabilities?.let{c->
