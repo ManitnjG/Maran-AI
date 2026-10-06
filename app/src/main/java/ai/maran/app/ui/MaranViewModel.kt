@@ -9,7 +9,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
-data class MaranUiState(val missions:List<RemoteMission> = emptyList(),val workers:List<WorkerDto> = emptyList(),val busy:Boolean=false,val connected:Boolean=false,val error:String?=null,val serverUrl:String="",val capabilities:Capabilities?=null,val diagnostics:String?=null,val export:ExportResult?=null,val voiceLanguage:String="en-IN")
+data class MaranUiState(val missions:List<RemoteMission> = emptyList(),val workers:List<WorkerDto> = emptyList(),val learnedSkills:List<LearnedSkillDto> = emptyList(),val busy:Boolean=false,val connected:Boolean=false,val error:String?=null,val serverUrl:String="",val capabilities:Capabilities?=null,val diagnostics:String?=null,val export:ExportResult?=null,val voiceLanguage:String="en-IN")
 class MaranViewModel(application:Application):AndroidViewModel(application){
  private val prefs=application.getSharedPreferences("connection",0)
  private val tokenStore=ai.maran.app.security.SecureTokenStore(application)
@@ -17,10 +17,11 @@ class MaranViewModel(application:Application):AndroidViewModel(application){
  private var api=ApiProvider.create(prefs.getString("url",BuildConfig.MARAN_API_BASE_URL)!!,tokenStore.read())
  private val _state=MutableStateFlow(MaranUiState(serverUrl=prefs.getString("url",BuildConfig.MARAN_API_BASE_URL)!!,workers=localWorkers.list()))
  val state=_state.asStateFlow()
- init { refresh() }
+ init { MaranAutonomyWork.schedule(application); refresh() }
  private suspend fun reload(){
   val missions=api.missions()
-  _state.value=_state.value.copy(missions=missions,workers=localWorkers.list(),connected=true,capabilities=api.capabilities(),error=null)
+  val learned=try{api.skills()}catch(_:Exception){emptyList()}
+  _state.value=_state.value.copy(missions=missions,workers=localWorkers.list(),learnedSkills=learned,connected=true,capabilities=api.capabilities(),error=null)
  }
  private suspend fun action(block:suspend ()->Unit){
   _state.value=_state.value.copy(busy=true,error=null)
@@ -48,15 +49,18 @@ class MaranViewModel(application:Application):AndroidViewModel(application){
  fun create(objective:String)=viewModelScope.launch {
   if(objective.isBlank() || _state.value.busy)return@launch
   action{
-   val m=api.createMission(MissionCreate(objective.trim()));reload()
-   if(m.status!="waiting_approval")api.runMission(m.id)
+   val m=api.createMission(MissionCreate(objective.trim(),autonomous=true,max_cycles=4));reload()
+   if(m.status!="waiting_approval"){
+    MaranAutonomyWork.enqueue(getApplication(),m.id)
+    api.autonomousRun(m.id)
+   }
    reload()
   }
  }
  fun handleVoice(text:String)=viewModelScope.launch {
   if(_state.value.busy)return@launch
   action{val r=api.voice(VoiceCommand(text));when(r.action){
-   "mission"->{val m=api.createMission(MissionCreate(r.objective?:text));reload();if(m.status!="waiting_approval")api.runMission(m.id);reload()}
+   "mission"->{val m=api.createMission(MissionCreate(r.objective?:text,autonomous=true,max_cycles=4));reload();if(m.status!="waiting_approval"){MaranAutonomyWork.enqueue(getApplication(),m.id);api.autonomousRun(m.id)};reload()}
    "create_worker"->reload()
    else->_state.value=_state.value.copy(error="Please review and type this command: ${r.heard?:text}")
   }}
@@ -71,7 +75,7 @@ class MaranViewModel(application:Application):AndroidViewModel(application){
   _state.value=_state.value.copy(workers=localWorkers.list(),error=null)
  }
  fun decide(id:String,approved:Boolean)=viewModelScope.launch{action{api.approve(id,ApprovalDecision(approved));reload()}}
- fun run(id:String)=viewModelScope.launch{action{api.runMission(id);reload()}}
+ fun run(id:String)=viewModelScope.launch{action{MaranAutonomyWork.enqueue(getApplication(),id);api.autonomousRun(id);reload()}}
  fun stop(id:String)=viewModelScope.launch{action{api.stopMission(id);reload()}}
  fun clearToken(){tokenStore.save("");api=ApiProvider.create(_state.value.serverUrl,"");refresh()}
  fun checkConnections()=viewModelScope.launch{action{val r=api.diagnostics();_state.value=_state.value.copy(diagnostics=r.entrySet().joinToString("\n"){(k,v)->k+": "+v.asJsonObject.get("message").asString})}}
