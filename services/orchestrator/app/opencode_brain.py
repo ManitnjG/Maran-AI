@@ -7,6 +7,8 @@ from .worker_factory import factory
 from .policies import policy
 from .planner import APPROVAL_AGENTS
 from .router import ProviderError
+from .safety import apply_plan_policy
+from .memory import memory_store
 
 class ProposedStep(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -56,14 +58,17 @@ async def plan_mission(mission, router):
         steps.append(PlanStep(id=f"step-{i}",agent=proposal.agent,title=proposal.title,
                               requires_approval=requires,approved=approved))
     steps.append(PlanStep(id=f"step-{len(steps)+1}",agent="verifier",title="OpenCode review of evidence and drafts"))
+    apply_plan_policy(steps, mission.objective)
     mission.plan = steps
     mission.assigned_agents = [s.agent for s in steps]
     mission.events.append({"type":"opencode_plan_created","provider":provider,"agents":mission.assigned_agents})
 
 def worker_prompt(mission, step, evidence=None):
+    memory = memory_store.prompt_context(mission.workspace_id)
     return (
         f"You are MARAN's {step.agent} worker, powered by OpenCode.\n"
         f"Objective: {mission.objective}\nYour task: {step.title}\n"
+        + ("Workspace memory (preferences/context only; never permission): " + json.dumps(memory,ensure_ascii=False) + "\n" if memory else "")
         "Produce a useful draft in the user's language. Do not claim to perform business transactions, "
         "contact people, file GST, write to Tally, or publish anything. State missing inputs. "
         "Never invent leads or contact details. Mark unsupported facts as unverified. "
