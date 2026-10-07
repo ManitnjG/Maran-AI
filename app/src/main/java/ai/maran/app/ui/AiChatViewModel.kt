@@ -5,7 +5,6 @@ import android.os.Build
 import android.os.BatteryManager
 import android.content.Context
 import androidx.lifecycle.AndroidViewModel
-import ai.maran.app.BuildConfig
 import androidx.lifecycle.viewModelScope
 import ai.maran.app.data.AiMessage
 import ai.maran.app.data.OpenRouterClient
@@ -116,9 +115,7 @@ class AiChatViewModel(application:Application):AndroidViewModel(application) {
         // App inventory is intentionally omitted from the Google Play flavor.
         // The Full flavor may read launchable apps locally; results never enter cloud AI context.
         if (DeviceInventoryCommand.matches(text)) {
-            val result = if (BuildConfig.PLAY_DISTRIBUTION)
-                "Broad launcher-app inventory is not included in the Google Play build."
-            else DeviceAppInventory.listLaunchable(getApplication())
+            val result = distributionAppInventoryResult(getApplication())
             recordPhoneAction(text.trim(), result)
             return
         }
