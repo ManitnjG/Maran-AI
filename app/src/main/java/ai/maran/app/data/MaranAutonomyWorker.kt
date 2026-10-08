@@ -17,13 +17,22 @@ class MaranAutonomyWorker(
         val api=ApiProvider.create(url,token)
         return try {
             val missionId=inputData.getString("mission_id")
+            val completed=mutableListOf<RemoteMission>()
             if(!missionId.isNullOrBlank()) {
-                api.autonomousRun(missionId)
+                completed += api.autonomousRun(missionId)
             } else {
                 api.missions()
                     .filter { it.autonomy_enabled && it.status in setOf("planning","running","blocked","verifying") }
                     .take(3)
-                    .forEach { api.autonomousRun(it.id) }
+                    .forEach { completed += api.autonomousRun(it.id) }
+            }
+            val seen=applicationContext.getSharedPreferences("mission_notifications",Context.MODE_PRIVATE)
+            completed.forEach { mission ->
+                val old=seen.getString(mission.id,null)
+                if(old!=mission.status && mission.status in setOf("waiting_approval","completed","blocked","failed")) {
+                    MaranNotifier.mission(applicationContext,mission)
+                    seen.edit().putString(mission.id,mission.status).apply()
+                }
             }
             Result.success()
         } catch(e: retrofit2.HttpException) {
