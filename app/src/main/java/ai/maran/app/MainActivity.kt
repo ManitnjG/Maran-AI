@@ -12,17 +12,20 @@ import ai.maran.app.ui.MaranApp
 
 class MainActivity : ComponentActivity() {
     private var openTab by mutableStateOf<String?>(null)
+    private var focusMissionId by mutableStateOf<String?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         openTab=intent?.getStringExtra("open_tab")
+        focusMissionId=intent?.getStringExtra("mission_id")
         enableEdgeToEdge()
-        setContent { MaranApp(initialTab=openTab) }
+        setContent { MaranApp(initialTab=openTab,focusMissionId=focusMissionId) }
     }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
         openTab=intent.getStringExtra("open_tab")
+        focusMissionId=intent.getStringExtra("mission_id")
     }
 }
