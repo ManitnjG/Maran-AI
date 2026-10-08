@@ -12,7 +12,7 @@ import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.MultipartBody
 
-data class MaranUiState(val missions:List<RemoteMission> = emptyList(),val workers:List<WorkerDto> = emptyList(),val learnedSkills:List<LearnedSkillDto> = emptyList(),val memory:List<MemoryItem> = emptyList(),val knowledge:List<KnowledgeDoc> = emptyList(),val busy:Boolean=false,val connected:Boolean=false,val error:String?=null,val serverUrl:String="",val capabilities:Capabilities?=null,val diagnostics:String?=null,val export:ExportResult?=null,val voiceLanguage:String="en-IN")
+data class MaranUiState(val missions:List<RemoteMission> = emptyList(),val workers:List<WorkerDto> = emptyList(),val learnedSkills:List<LearnedSkillDto> = emptyList(),val memory:List<MemoryItem> = emptyList(),val knowledge:List<KnowledgeDoc> = emptyList(),val knowledgeHits:List<KnowledgeHit> = emptyList(),val busy:Boolean=false,val connected:Boolean=false,val error:String?=null,val serverUrl:String="",val capabilities:Capabilities?=null,val diagnostics:String?=null,val export:ExportResult?=null,val voiceLanguage:String="en-IN")
 class MaranViewModel(application:Application):AndroidViewModel(application){
  private val prefs=application.getSharedPreferences("connection",0)
  private val tokenStore=ai.maran.app.security.SecureTokenStore(application)
@@ -103,6 +103,10 @@ class MaranViewModel(application:Application):AndroidViewModel(application){
   }
  }
  fun deleteKnowledge(id:String)=viewModelScope.launch{action{api.deleteKnowledge(id);reload()}}
+ fun searchKnowledge(query:String)=viewModelScope.launch{
+  if(query.isBlank()){_state.value=_state.value.copy(knowledgeHits=emptyList());return@launch}
+  action{_state.value=_state.value.copy(knowledgeHits=api.searchKnowledge(query.trim()))}
+ }
  fun deleteRemoteWorkspace()=viewModelScope.launch{
   action{
    api.deleteWorkspace(WorkspaceDeleteRequest())
