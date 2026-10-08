@@ -2,7 +2,7 @@ from contextlib import asynccontextmanager
 import asyncio
 import os
 import secrets
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, UploadFile, File, Form
 from fastapi.responses import JSONResponse
 from .models import Mission, MissionCreate, MissionStatus, ApprovalDecision, ActionDecision, StopRequest, VoiceCommand, WorkerCreate, MemoryWrite
 from .planner import local_plan
@@ -19,6 +19,7 @@ from .providers import configured_router
 from .router import ProviderError
 from .tool_registry import registry as tool_registry
 from .action_runtime import execute_action
+from .knowledge import knowledge_store, KnowledgeError, MAX_FILE_BYTES
 
 @asynccontextmanager
 async def lifespan(app):
@@ -131,6 +132,34 @@ def forget_memory(key:str,workspace_id:str="default"):
     if not memory_store.delete(workspace_id,key):
         raise HTTPException(404,"Memory item not found")
     return {"ok":True,"key":key}
+
+@app.get("/knowledge")
+def knowledge_list(workspace_id:str="default"):
+    return knowledge_store.list(workspace_id)
+
+@app.get("/knowledge/search")
+def knowledge_search(q:str,workspace_id:str="default",limit:int=8):
+    return knowledge_store.search(q,workspace_id,ai_only=False,limit=limit)
+
+@app.post("/knowledge/upload")
+async def knowledge_upload(
+    file:UploadFile=File(...),
+    workspace_id:str=Form("default"),
+    allow_ai:bool=Form(False),
+):
+    data=await file.read(MAX_FILE_BYTES+1)
+    if len(data)>MAX_FILE_BYTES:
+        raise HTTPException(413,"Knowledge file is larger than 5 MB")
+    try:
+        return knowledge_store.add(workspace_id,file.filename or "knowledge-file",file.content_type or "application/octet-stream",data,allow_ai)
+    except KnowledgeError as exc:
+        raise HTTPException(422,str(exc)) from exc
+
+@app.delete("/knowledge/{document_id}")
+def knowledge_delete(document_id:str,workspace_id:str="default"):
+    if not knowledge_store.delete(document_id,workspace_id):
+        raise HTTPException(404,"Knowledge document not found")
+    return {"ok":True,"document_id":document_id}
 
 @app.get("/missions",response_model=list[Mission])
 def list_missions(): return store.all()
