@@ -50,6 +50,7 @@ import java.time.LocalDate
  var memoryValue by remember{mutableStateOf("")}
  var confirmDeleteRemote by remember{mutableStateOf(false)}
  var allowKnowledgeAi by remember{mutableStateOf(false)}
+ var knowledgeQuery by remember{mutableStateOf("")}
  var notificationsAllowed by remember{
   mutableStateOf(Build.VERSION.SDK_INT<33 || context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)==PackageManager.PERMISSION_GRANTED)
  }
@@ -119,6 +120,16 @@ import java.time.LocalDate
     Text(doc.name,style=MaterialTheme.typography.titleSmall)
     Text((doc.characters/1000.0).let{String.format("%.1fK characters",it)}+" • "+if(doc.allow_ai)"AI context allowed" else "Search only",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
     TextButton(onClick={vm.deleteKnowledge(doc.id)}){Text("Remove file")}
+   }
+  }
+
+  MaranInput(knowledgeQuery,{knowledgeQuery=it},label="Search knowledge",modifier=Modifier.fillMaxWidth(),maxLines=2)
+  MaranSecondaryButton("Search files",onClick={vm.searchKnowledge(knowledgeQuery)},enabled=knowledgeQuery.isNotBlank()&&!state.busy)
+  state.knowledgeHits.forEach{hit->
+   MaranPanel(Modifier.fillMaxWidth()){
+    Text(hit.name,style=MaterialTheme.typography.titleSmall)
+    Text(hit.snippet,style=MaterialTheme.typography.bodySmall)
+    Text("Match score: "+hit.score,style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
    }
   }
 
