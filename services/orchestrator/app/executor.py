@@ -7,6 +7,7 @@ from .router import ProviderError
 from .context import context_vault
 from .web_tools import research, fetch_page, ToolError
 from .opencode_brain import plan_mission, worker_prompt, review_mission
+from .action_runtime import propose_actions
 
 
 async def execute_local(mission: Mission, checkpoint=None) -> Mission:
@@ -142,11 +143,31 @@ async def execute_local(mission: Mission, checkpoint=None) -> Mission:
                 step.status = "blocked"
                 step.error = "Waiting for worker drafts before OpenCode review."
     mission.verification = Verification.partial if any(s.evidence for s in mission.plan) else Verification.unverified
+
+    if not blocked and not mission.actions:
+        mission.actions = await propose_actions(mission, router)
+        if mission.actions:
+            mission.status = MissionStatus.waiting_approval
+            mission.result = {
+                "summary": "Drafts are ready. External action is waiting for your approval.",
+                "completed_steps": completed,
+                "blocked_steps": [],
+                "failed_steps": [],
+                "note": "No external action has run yet. Review the exact tool and arguments in Approval Centre."
+            }
+            mission.events.append({
+                "type": "action_approval_required",
+                "action_ids": [a.id for a in mission.actions],
+                "count": len(mission.actions),
+            })
+            save()
+            return mission
+
     mission.status = MissionStatus.blocked if blocked else MissionStatus.completed
     mission.result = {
         "summary": "Mission needs configuration or missing steps" if blocked else "Results ready for review",
         "completed_steps": completed, "blocked_steps": blocked, "failed_steps": [],
-        "note": "No external actions were performed. Sources and drafts need review; they are not confirmed leads or completed business transactions."
+        "note": "No unapproved external action was performed. Research evidence and AI drafts still need normal human review."
     }
     mission.events.append({"type": "mission_blocked" if blocked else "mission_completed", "verification": mission.verification.value})
     save()
