@@ -27,6 +27,21 @@ data class PlanStep(
  val evidence:Evidence?=null
 )
 data class MissionResult(val summary:String?=null,val completed_steps:List<String> = emptyList(),val blocked_steps:List<String> = emptyList(),val failed_steps:List<String> = emptyList(),val note:String?=null)
+data class ActionIntentDto(
+ val id:String,
+ val tool_id:String,
+ val title:String,
+ val args:Map<String,Any?> = emptyMap(),
+ val reason:String?=null,
+ val status:String="waiting_approval",
+ val connection_status:String="unknown",
+ val requires_approval:Boolean=true,
+ val approved:Boolean=false,
+ val attempts:Int=0,
+ val result:Map<String,Any?>?=null,
+ val verification:String="pending",
+ val error:String?=null
+)
 data class MissionEvent(
  val type:String,
  val timestamp:String?=null,
@@ -46,6 +61,7 @@ data class RemoteMission(
  val verification:String,
  val assigned_agents:List<String>,
  val plan:List<PlanStep>,
+ val actions:List<ActionIntentDto> = emptyList(),
  val events:List<MissionEvent> = emptyList(),
  val result:MissionResult?=null,
  val autonomy_enabled:Boolean=true,
@@ -62,9 +78,18 @@ data class LearnedSkillDto(
  val success_count:Int=0
 )
 data class MemoryItem(val key:String,val value:String,val updated_at:String?=null)
+data class KnowledgeDoc(
+ val id:String,
+ val name:String,
+ val mime_type:String,
+ val allow_ai:Boolean=false,
+ val characters:Int=0,
+ val created_at:String?=null
+)
 data class MemoryWrite(val key:String,val value:String,val workspace_id:String="default")
 data class StopRequest(val reason:String="Stopped by user")
 data class ApprovalDecision(val approved:Boolean,val note:String?=null)
+data class ActionDecision(val approved:Boolean,val note:String?=null)
 data class WorkerCreate(val name:String,val skills:List<String>,val temporary:Boolean=true)
 data class WorkerDto(val id:String,val name:String,val skills:List<String>,val permissions:List<String>)
 data class VoiceCommand(val text:String,val confidence:Double=1.0)
@@ -85,8 +110,18 @@ interface MaranApi {
  @POST("missions/{id}/autonomous-run") suspend fun autonomousRun(@Path("id") id:String):RemoteMission
  @POST("missions/{id}/stop") suspend fun stopMission(@Path("id") id:String,@Body request:StopRequest=StopRequest()):RemoteMission
  @POST("missions/{id}/approval") suspend fun approve(@Path("id") id:String,@Body decision:ApprovalDecision):RemoteMission
+ @POST("missions/{id}/actions/{actionId}/decision") suspend fun decideAction(@Path("id") id:String,@Path("actionId") actionId:String,@Body decision:ActionDecision):RemoteMission
  @GET("skills") suspend fun skills(@Query("workspace_id") workspaceId:String="default"):List<LearnedSkillDto>
  @GET("memory") suspend fun memory(@Query("workspace_id") workspaceId:String="default"):List<MemoryItem>
+ @GET("knowledge") suspend fun knowledge(@Query("workspace_id") workspaceId:String="default"):List<KnowledgeDoc>
+ @Multipart
+ @POST("knowledge/upload")
+ suspend fun uploadKnowledge(
+  @Part file:okhttp3.MultipartBody.Part,
+  @Part("workspace_id") workspaceId:okhttp3.RequestBody,
+  @Part("allow_ai") allowAi:okhttp3.RequestBody
+ ):KnowledgeDoc
+ @DELETE("knowledge/{documentId}") suspend fun deleteKnowledge(@Path("documentId") documentId:String,@Query("workspace_id") workspaceId:String="default"):Map<String,Any>
  @POST("memory") suspend fun remember(@Body item:MemoryWrite):MemoryItem
  @DELETE("memory/{key}") suspend fun forgetMemory(@Path("key") key:String,@Query("workspace_id") workspaceId:String="default"):Map<String,Any>
  @POST("workers") suspend fun createWorker(@Body request:WorkerCreate):WorkerDto
