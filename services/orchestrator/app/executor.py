@@ -5,7 +5,7 @@ from .policies import policy
 from .providers import configured_router
 from .router import ProviderError
 from .context import context_vault
-from .web_tools import research, fetch_page, ToolError
+from .web_tools import research, deep_research, fetch_page, ToolError
 from .opencode_brain import plan_mission, worker_prompt, review_mission
 from .action_runtime import propose_actions
 
@@ -76,10 +76,10 @@ async def execute_local(mission: Mission, checkpoint=None) -> Mission:
             mission.events.append({"type":"step_started","step_id":step.id,"attempt":step.attempts})
             save()
             try:
-                if step.agent in ("research", "tour_leads", "seo"):
+                if step.agent in ("research", "tour_leads", "itinerary", "seo", "marketing"):
                     if research_task is None:
                         urls = re.findall(r"https?://[^\s<>]+", mission.objective)
-                        operation = fetch_page(urls[0].rstrip(".,)")) if urls else research(mission.objective)
+                        operation = fetch_page(urls[0].rstrip(".,)")) if urls else deep_research(mission.objective)
                         research_task = asyncio.create_task(operation)
                     evidence = await asyncio.wait_for(asyncio.shield(research_task), timeout=policy.step_timeout_seconds)
                     step.evidence = evidence
