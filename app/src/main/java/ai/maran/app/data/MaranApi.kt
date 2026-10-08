@@ -90,6 +90,7 @@ data class MemoryWrite(val key:String,val value:String,val workspace_id:String="
 data class StopRequest(val reason:String="Stopped by user")
 data class ApprovalDecision(val approved:Boolean,val note:String?=null)
 data class ActionDecision(val approved:Boolean,val note:String?=null)
+data class WorkspaceDeleteRequest(val confirmed:Boolean=true,val workspace_id:String="default")
 data class WorkerCreate(val name:String,val skills:List<String>,val temporary:Boolean=true)
 data class WorkerDto(val id:String,val name:String,val skills:List<String>,val permissions:List<String>)
 data class VoiceCommand(val text:String,val confidence:Double=1.0)
@@ -98,6 +99,7 @@ data class VoiceResult(val action:String,val objective:String?=null,val name:Str
 
 interface MaranApi {
  @GET("capabilities") suspend fun capabilities():Capabilities
+ @POST("workspace/delete") suspend fun deleteWorkspace(@Body request:WorkspaceDeleteRequest=WorkspaceDeleteRequest()):Map<String,Any>
  @POST("diagnostics") suspend fun diagnostics():com.google.gson.JsonObject
  @POST("backup/restore") suspend fun restore(@Body data:com.google.gson.JsonObject):com.google.gson.JsonObject
  @GET("backup") suspend fun backup():com.google.gson.JsonObject
