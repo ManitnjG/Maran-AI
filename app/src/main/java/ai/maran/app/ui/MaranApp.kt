@@ -19,7 +19,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.viewmodel.compose.viewModel
 import ai.maran.app.data.RemoteMission
 private enum class Tab(val label:String,val icon:ImageVector){Home("Home",Icons.Rounded.Home),Missions("Missions",Icons.Rounded.Checklist),Approvals("Approve",Icons.Rounded.FactCheck),Ai("AI",Icons.Rounded.AutoAwesome),Workforce("Workers",Icons.Rounded.Groups),Tools("Tools",Icons.Rounded.Build)}
-@Composable fun MaranApp(vm:MaranViewModel=viewModel(),initialTab:String?=null){
+@Composable fun MaranApp(vm:MaranViewModel=viewModel(),initialTab:String?=null,focusMissionId:String?=null){
  var tab by remember{mutableStateOf(
   when(initialTab){
    "approvals"->Tab.Approvals
@@ -70,8 +70,8 @@ private enum class Tab(val label:String,val icon:ImageVector){Home("Home",Icons.
       {tab=Tab.Ai},{tab=Tab.Missions},{tab=Tab.Workforce},{tab=Tab.Tools},
       onWakeCommand={command->pendingVoiceCommand=command;tab=Tab.Ai}
      )
-     Tab.Missions -> MissionScreen(state,vm::decide,vm::run,vm::stop,vm::refresh,vm::exportMission)
-     Tab.Approvals -> ApprovalScreen(state,vm::decide,vm::decideAction,vm::refresh)
+     Tab.Missions -> MissionScreen(state,vm::decide,vm::run,vm::stop,vm::refresh,vm::exportMission,focusMissionId)
+     Tab.Approvals -> ApprovalScreen(state,vm::decide,vm::decideAction,vm::refresh,focusMissionId)
      Tab.Workforce -> WorkforceScreen(state.missions,state.workers,state.learnedSkills,vm::stopWorker,vm::createWorker)
      Tab.Tools -> ToolsScreen(state,vm)
     }
@@ -97,7 +97,10 @@ private enum class Tab(val label:String,val icon:ImageVector){Home("Home",Icons.
   FilledIconButton(onClick=onVoice,modifier=Modifier.size(110.dp)){Icon(Icons.Rounded.GraphicEq,"MARAN voice",Modifier.size(52.dp))};Spacer(Modifier.height(20.dp));Text("MARAN",style=MaterialTheme.typography.headlineLarge);Text("Tell me the outcome. I’ll organize the workforce.");spoken?.let{Text("Heard: $it",color=MaterialTheme.colorScheme.onSurfaceVariant)};Spacer(Modifier.height(20.dp));OutlinedTextField(input,{input=it},Modifier.fillMaxWidth(),placeholder={Text("Type a mission…")});Spacer(Modifier.height(10.dp));Button(onClick={onCreate(input);input=""},enabled=!state.busy&&input.isNotBlank(),modifier=Modifier.fillMaxWidth()){Text(if(state.busy)"Planning…" else "Start mission")}
  }
 }
-@Composable private fun MissionScreen(state:MaranUiState,onDecision:(String,Boolean)->Unit,onRun:(String)->Unit,onStop:(String)->Unit,onRefresh:()->Unit,onExport:(String)->Unit){Column(Modifier.fillMaxSize().padding(20.dp)){MaranSectionHeading("Missions","Manage plans and approvals");MaranSecondaryButton("Refresh",onRefresh);state.error?.let{Text(it,color=MaterialTheme.colorScheme.error)};Spacer(Modifier.height(12.dp));LazyColumn(verticalArrangement=Arrangement.spacedBy(12.dp)){items(state.missions){m->MissionCard(m,if(m.status=="waiting_approval"&&m.actions.isEmpty()) onDecision else null,onRun,onStop,onExport)}}}}
+@Composable private fun MissionScreen(state:MaranUiState,onDecision:(String,Boolean)->Unit,onRun:(String)->Unit,onStop:(String)->Unit,onRefresh:()->Unit,onExport:(String)->Unit,focusMissionId:String?=null){
+ val ordered=state.missions.sortedByDescending{it.id==focusMissionId}
+ Column(Modifier.fillMaxSize().padding(20.dp)){MaranSectionHeading("Missions","Manage plans and approvals");MaranSecondaryButton("Refresh",onRefresh);state.error?.let{Text(it,color=MaterialTheme.colorScheme.error)};Spacer(Modifier.height(12.dp));LazyColumn(verticalArrangement=Arrangement.spacedBy(12.dp)){items(ordered){m->MissionCard(m,if(m.status=="waiting_approval"&&m.actions.isEmpty()) onDecision else null,onRun,onStop,onExport)}}}
+}
 @Composable private fun MissionCard(
  m:RemoteMission,
  onDecision:((String,Boolean)->Unit)?,
@@ -174,12 +177,13 @@ private enum class Tab(val label:String,val icon:ImageVector){Home("Home",Icons.
  state:MaranUiState,
  onMissionDecision:(String,Boolean)->Unit,
  onActionDecision:(String,String,Boolean)->Unit,
- onRefresh:()->Unit
+ onRefresh:()->Unit,
+ focusMissionId:String?=null
 ){
  val waiting=state.missions.filter { m ->
   (m.status=="waiting_approval" && m.actions.isEmpty()) ||
   m.actions.any { it.status in listOf("waiting_approval","needs_connection","failed") }
- }
+ }.sortedByDescending{it.id==focusMissionId}
  Column(Modifier.fillMaxSize().padding(20.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){
   MaranSectionHeading("Approval Centre","Review the exact plan or external action before anything consequential runs")
   Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){
