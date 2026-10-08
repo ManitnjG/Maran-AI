@@ -16,7 +16,7 @@ from .integrations import (
     IntegrationError, integration_status, gmail_send, calendar_create,
     drive_upload_text, github_dispatch, github_put_file, whatsapp_send,
     facebook_post, instagram_post, linkedin_post, twilio_sms, twilio_call,
-    tally_post_xml,
+    tally_post_xml, gmail_get, calendar_get, drive_get,
 )
 from .router import ProviderError
 
@@ -156,6 +156,21 @@ async def propose_actions(mission: Mission, router) -> list[ActionIntent]:
         ))
     return intents
 
+async def _verify_side_effect(tool_id: str, result: dict[str, Any]) -> str:
+    try:
+        if tool_id=="gmail_send" and result.get("id"):
+            check=await gmail_get(str(result["id"]))
+            return "provider_verified" if check.get("id")==result.get("id") else "provider_acknowledged"
+        if tool_id=="google_calendar" and result.get("id"):
+            check=await calendar_get(str(result["id"]))
+            return "provider_verified" if check.get("id")==result.get("id") else "provider_acknowledged"
+        if tool_id=="google_drive" and result.get("id"):
+            check=await drive_get(str(result["id"]))
+            return "provider_verified" if check.get("id")==result.get("id") and not check.get("trashed",False) else "provider_acknowledged"
+    except IntegrationError:
+        pass
+    return "provider_acknowledged"
+
 async def execute_action(intent: ActionIntent) -> ActionIntent:
     if not intent.approved:
         raise IntegrationError("Action is not approved")
@@ -201,7 +216,7 @@ async def execute_action(intent: ActionIntent) -> ActionIntent:
             raise IntegrationError("Tool is not executable")
         intent.result = result if isinstance(result, dict) else {"result": result}
         intent.status = "completed"
-        intent.verification = "provider_acknowledged"
+        intent.verification = await _verify_side_effect(intent.tool_id,intent.result)
         intent.error = None
     except IntegrationError as exc:
         intent.status = "failed"
