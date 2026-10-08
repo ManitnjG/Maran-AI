@@ -83,7 +83,8 @@ import java.time.LocalDate
     fileStatus="Knowledge file queued for upload"
    }catch(_:Exception){fileStatus="Cannot read knowledge file (maximum 5 MB)"}
   }
- } if(confirmDeleteRemote) AlertDialog(
+ }
+ if(confirmDeleteRemote) AlertDialog(
   onDismissRequest={confirmDeleteRemote=false},
   title={Text("Delete remote MARAN data?")},
   text={Text("This deletes remote missions, workspace memory, learned workflows, knowledge files and built-in CRM leads from the default workspace. It does not delete external Gmail, Drive, Calendar, GitHub, social or Tally data.")},
