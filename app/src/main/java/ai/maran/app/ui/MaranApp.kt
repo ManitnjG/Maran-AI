@@ -18,7 +18,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.viewmodel.compose.viewModel
 import ai.maran.app.data.RemoteMission
-private enum class Tab(val label:String,val icon:ImageVector){Home("Home",Icons.Rounded.Home),Missions("Missions",Icons.Rounded.Checklist),Ai("AI",Icons.Rounded.AutoAwesome),Workforce("Workers",Icons.Rounded.Groups),Tools("Tools",Icons.Rounded.Build)}
+private enum class Tab(val label:String,val icon:ImageVector){Home("Home",Icons.Rounded.Home),Missions("Missions",Icons.Rounded.Checklist),Approvals("Approve",Icons.Rounded.FactCheck),Ai("AI",Icons.Rounded.AutoAwesome),Workforce("Workers",Icons.Rounded.Groups),Tools("Tools",Icons.Rounded.Build)}
 @Composable fun MaranApp(vm:MaranViewModel=viewModel()){
  var tab by remember{mutableStateOf(Tab.Home)}
  val state by vm.state.collectAsState()
@@ -58,6 +58,7 @@ private enum class Tab(val label:String,val icon:ImageVector){Home("Home",Icons.
       onWakeCommand={command->pendingVoiceCommand=command;tab=Tab.Ai}
      )
      Tab.Missions -> MissionScreen(state,vm::decide,vm::run,vm::stop,vm::refresh,vm::exportMission)
+     Tab.Approvals -> ApprovalScreen(state,vm::decide,vm::decideAction,vm::refresh)
      Tab.Workforce -> WorkforceScreen(state.missions,state.workers,state.learnedSkills,vm::stopWorker,vm::createWorker)
      Tab.Tools -> ToolsScreen(state,vm)
     }
@@ -83,7 +84,7 @@ private enum class Tab(val label:String,val icon:ImageVector){Home("Home",Icons.
   FilledIconButton(onClick=onVoice,modifier=Modifier.size(110.dp)){Icon(Icons.Rounded.GraphicEq,"MARAN voice",Modifier.size(52.dp))};Spacer(Modifier.height(20.dp));Text("MARAN",style=MaterialTheme.typography.headlineLarge);Text("Tell me the outcome. I’ll organize the workforce.");spoken?.let{Text("Heard: $it",color=MaterialTheme.colorScheme.onSurfaceVariant)};Spacer(Modifier.height(20.dp));OutlinedTextField(input,{input=it},Modifier.fillMaxWidth(),placeholder={Text("Type a mission…")});Spacer(Modifier.height(10.dp));Button(onClick={onCreate(input);input=""},enabled=!state.busy&&input.isNotBlank(),modifier=Modifier.fillMaxWidth()){Text(if(state.busy)"Planning…" else "Start mission")}
  }
 }
-@Composable private fun MissionScreen(state:MaranUiState,onDecision:(String,Boolean)->Unit,onRun:(String)->Unit,onStop:(String)->Unit,onRefresh:()->Unit,onExport:(String)->Unit){Column(Modifier.fillMaxSize().padding(20.dp)){MaranSectionHeading("Missions","Manage plans and approvals");MaranSecondaryButton("Refresh",onRefresh);state.error?.let{Text(it,color=MaterialTheme.colorScheme.error)};Spacer(Modifier.height(12.dp));LazyColumn(verticalArrangement=Arrangement.spacedBy(12.dp)){items(state.missions){m->MissionCard(m,if(m.status=="waiting_approval") onDecision else null,onRun,onStop,onExport)}}}}
+@Composable private fun MissionScreen(state:MaranUiState,onDecision:(String,Boolean)->Unit,onRun:(String)->Unit,onStop:(String)->Unit,onRefresh:()->Unit,onExport:(String)->Unit){Column(Modifier.fillMaxSize().padding(20.dp)){MaranSectionHeading("Missions","Manage plans and approvals");MaranSecondaryButton("Refresh",onRefresh);state.error?.let{Text(it,color=MaterialTheme.colorScheme.error)};Spacer(Modifier.height(12.dp));LazyColumn(verticalArrangement=Arrangement.spacedBy(12.dp)){items(state.missions){m->MissionCard(m,if(m.status=="waiting_approval"&&m.actions.isEmpty()) onDecision else null,onRun,onStop,onExport)}}}}
 @Composable private fun MissionCard(
  m:RemoteMission,
  onDecision:((String,Boolean)->Unit)?,
@@ -151,6 +152,80 @@ private enum class Tab(val label:String,val icon:ImageVector){Home("Home",Icons.
    Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){
     MaranSecondaryButton("Reject",onClick={onDecision(m.id,false)})
     MaranPrimaryButton("Approve",onClick={onDecision(m.id,true)})
+   }
+  }
+ }
+}
+
+@Composable private fun ApprovalScreen(
+ state:MaranUiState,
+ onMissionDecision:(String,Boolean)->Unit,
+ onActionDecision:(String,String,Boolean)->Unit,
+ onRefresh:()->Unit
+){
+ val waiting=state.missions.filter { m ->
+  (m.status=="waiting_approval" && m.actions.isEmpty()) ||
+  m.actions.any { it.status in listOf("waiting_approval","needs_connection","failed") }
+ }
+ Column(Modifier.fillMaxSize().padding(20.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){
+  MaranSectionHeading("Approval Centre","Review the exact plan or external action before anything consequential runs")
+  Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){
+   AssistChip(onClick={},label={Text("\${waiting.size} waiting")})
+   MaranSecondaryButton("Refresh",onRefresh)
+  }
+  state.error?.let{Text(it,color=MaterialTheme.colorScheme.error)}
+  if(waiting.isEmpty()){
+   MaranPanel(Modifier.fillMaxWidth()){
+    Text("Nothing needs approval",style=MaterialTheme.typography.titleMedium)
+    Text("Safe research, drafting and verification can continue automatically. External side effects appear here first.",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+   }
+  } else {
+   LazyColumn(verticalArrangement=Arrangement.spacedBy(12.dp),contentPadding=PaddingValues(bottom=20.dp)){
+    items(waiting){m->
+     MaranPanel(Modifier.fillMaxWidth()){
+      Text(m.objective,style=MaterialTheme.typography.titleMedium)
+      if(m.status=="waiting_approval"&&m.actions.isEmpty()){
+       Text("Mission plan approval",style=MaterialTheme.typography.labelLarge,color=MaterialTheme.colorScheme.primary)
+       m.plan.filter{it.requires_approval&&!it.approved}.forEach{step->
+        Text("• "+step.title,style=MaterialTheme.typography.bodySmall)
+        step.approval_reason?.let{Text(it,style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)}
+       }
+       Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){
+        MaranSecondaryButton("Reject",onClick={onMissionDecision(m.id,false)})
+        MaranPrimaryButton("Approve plan",onClick={onMissionDecision(m.id,true)})
+       }
+      }
+      m.actions.filter{it.status in listOf("waiting_approval","needs_connection","failed")}.forEach{action->
+       HorizontalDivider()
+       Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){
+        Text(action.title,style=MaterialTheme.typography.titleSmall,modifier=Modifier.weight(1f))
+        AssistChip(onClick={},label={Text(action.status.replace('_',' '))})
+       }
+       Text("Tool: "+action.tool_id.replace('_',' '),style=MaterialTheme.typography.bodySmall)
+       Text("Connection: "+action.connection_status.replace('_',' '),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+       action.reason?.let{Text(it,style=MaterialTheme.typography.bodySmall)}
+       val args=action.args.entries.joinToString("\n"){(k,v)->"\$k: \${v?.toString()?.take(700) ?: ""}"}.take(1800)
+       if(args.isNotBlank()){
+        androidx.compose.foundation.text.selection.SelectionContainer{
+         Text(args,style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+       }
+       action.error?.let{Text(it,color=MaterialTheme.colorScheme.error,style=MaterialTheme.typography.bodySmall)}
+       Text(
+        "Approval applies only to this exact action. MARAN cannot use it to approve another action, OTP, CAPTCHA, password, PIN, CVV, biometric or payment authentication.",
+        style=MaterialTheme.typography.labelSmall,
+        color=MaterialTheme.colorScheme.onSurfaceVariant
+       )
+       Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){
+        MaranSecondaryButton("Reject",onClick={onActionDecision(m.id,action.id,false)})
+        MaranPrimaryButton(
+         if(action.status=="waiting_approval") "Approve action" else "Retry action",
+         onClick={onActionDecision(m.id,action.id,true)}
+        )
+       }
+      }
+     }
+    }
    }
   }
  }
