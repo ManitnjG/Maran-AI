@@ -221,7 +221,7 @@ private enum class Tab(val label:String,val icon:ImageVector){Home("Home",Icons.
        Text("Tool: "+action.tool_id.replace('_',' '),style=MaterialTheme.typography.bodySmall)
        Text("Connection: "+action.connection_status.replace('_',' '),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
        action.reason?.let{Text(it,style=MaterialTheme.typography.bodySmall)}
-       val args=action.args.entries.joinToString("\n"){(k,v)->"\$k: \${v?.toString()?.take(700) ?: ""}"}.take(1800)
+       val args=action.args.entries.joinToString("\n") { (k,v) -> "$k: ${v?.toString()?.take(700) ?: ""}" }.take(1800)
        if(args.isNotBlank()){
         androidx.compose.foundation.text.selection.SelectionContainer{
          Text(args,style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
