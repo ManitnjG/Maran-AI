@@ -1,8 +1,6 @@
 package ai.maran.app.ui
 
 import android.Manifest
-import android.app.Activity
-import android.content.ActivityNotFoundException
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -24,7 +22,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.lifecycle.viewmodel.compose.viewModel
-import ai.maran.app.voice.SpeechController
+import ai.maran.app.voice.MaranSpeechRecognizer
 import ai.maran.app.voice.MaranSpeaker
 import ai.maran.app.data.OPENROUTER_NEMOTRON_FREE
 
@@ -59,9 +57,13 @@ fun AiChatScreen(
     var confirmRemove by remember { mutableStateOf(false) }
     var voiceLanguage by remember { mutableStateOf("en-IN") }
     var lastHeard by remember { mutableStateOf<String?>(null) }
+    var liveTranscript by remember { mutableStateOf("") }
+    var isListening by remember { mutableStateOf(false) }
     val context=LocalContext.current
     val speaker=remember(context) { MaranSpeaker(context) }
     DisposableEffect(speaker) { onDispose { speaker.close() } }
+    val recognizer=remember(context) { MaranSpeechRecognizer(context) }
+    DisposableEffect(recognizer) { onDispose { recognizer.close() } }
     var speakNextReply by remember { mutableStateOf(false) }
     var replyAfterCount by remember { mutableIntStateOf(0) }
     LaunchedEffect(state.messages.lastOrNull()?.content,state.busy,speakNextReply) {
@@ -115,40 +117,42 @@ fun AiChatScreen(
         nativeDispatch(normalized)
     }
 
-    fun startVoice(launcher: androidx.activity.result.ActivityResultLauncher<android.content.Intent>) {
-        try {
-            launcher.launch(SpeechController.intent(voiceLanguage))
-        } catch(_:ActivityNotFoundException) {
-            vm.voiceError("Speech recognition is not available on this phone. Install or enable a speech recognition service.")
-        } catch(e:Exception) {
-            vm.voiceError("Could not start voice recognition: "+(e.message ?: "unknown error"))
-        }
-    }
-
-    lateinit var speechLauncher: androidx.activity.result.ActivityResultLauncher<android.content.Intent>
-    val permissionLauncher=rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()){granted->
-        if(granted) startVoice(speechLauncher)
-        else vm.voiceError("Microphone permission is required for voice recognition.")
-    }
-    speechLauncher=rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()){result->
-        if(result.resultCode==Activity.RESULT_OK) {
-            val heard=SpeechController.result(result.data)
-            if(heard.isNullOrBlank()) vm.voiceError("I could not hear any words. Please try again.")
-            else {
+    fun startVoice() {
+        liveTranscript=""
+        recognizer.start(
+            language=voiceLanguage,
+            onPartial={ heard ->
+                liveTranscript=heard
+                input=heard
+            },
+            onFinal={ heard ->
+                isListening=false
+                liveTranscript=""
                 lastHeard=heard
                 input=heard
                 replyAfterCount=state.messages.size
                 speakNextReply=true
                 dispatchCommand(heard)
                 input=""
-            }
-        }
+            },
+            onError={ message ->
+                isListening=false
+                liveTranscript=""
+                if(message!="Voice recognition stopped.") vm.voiceError(message)
+            },
+            onListening={ active -> isListening=active }
+        )
+    }
+
+    val permissionLauncher=rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()){granted->
+        if(granted) startVoice()
+        else vm.voiceError("Microphone permission is required for voice recognition.")
     }
 
     LaunchedEffect(autoListenSignal) {
         if(autoListenSignal>0) {
             if(context.checkSelfPermission(Manifest.permission.RECORD_AUDIO)==PackageManager.PERMISSION_GRANTED) {
-                startVoice(speechLauncher)
+                startVoice()
             } else {
                 permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
             }
@@ -213,7 +217,13 @@ fun AiChatScreen(
         Card(Modifier.fillMaxWidth()) {
             Column(Modifier.padding(14.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
                 Text("Voice AI",style=MaterialTheme.typography.titleMedium)
-                Text("Speak naturally. Device actions and installed-app listing run locally; general questions use OpenRouter.",style=MaterialTheme.typography.bodySmall)
+                Text(
+                    if(recognizer.onDevice)
+                        "Voice recognition stays inside MARAN and uses Android on-device speech recognition on this phone."
+                    else
+                        "Voice recognition stays inside MARAN. Your installed Android speech engine handles recognition in the background without opening its full-screen UI.",
+                    style=MaterialTheme.typography.bodySmall
+                )
                 Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
                     FilterChip(
                         selected=voiceLanguage=="en-IN",
@@ -226,17 +236,35 @@ fun AiChatScreen(
                         label={Text("தமிழ்")}
                     )
                 }
-                MaranPrimaryButton(
-                    label=if(state.busy) "AI is answering…" else "Speak to MARAN",
-                    onClick={
-                        if(context.checkSelfPermission(Manifest.permission.RECORD_AUDIO)==PackageManager.PERMISSION_GRANTED) {
-                            startVoice(speechLauncher)
-                        } else {
-                            permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
-                        }
-                    },
-                    enabled=!state.busy,
-                    modifier=Modifier.fillMaxWidth()
+                if(isListening) {
+                    LinearProgressIndicator(Modifier.fillMaxWidth())
+                    Text(
+                        if(liveTranscript.isBlank()) "Listening…" else liveTranscript,
+                        style=MaterialTheme.typography.bodyLarge
+                    )
+                    MaranSecondaryButton(
+                        label="Stop listening",
+                        onClick=recognizer::stop,
+                        modifier=Modifier.fillMaxWidth()
+                    )
+                } else {
+                    MaranPrimaryButton(
+                        label=if(state.busy) "AI is answering…" else "Speak to MARAN",
+                        onClick={
+                            if(context.checkSelfPermission(Manifest.permission.RECORD_AUDIO)==PackageManager.PERMISSION_GRANTED) {
+                                startVoice()
+                            } else {
+                                permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                            }
+                        },
+                        enabled=!state.busy,
+                        modifier=Modifier.fillMaxWidth()
+                    )
+                }
+                Text(
+                    if(recognizer.onDevice) "On-device speech • in-app UI" else "System speech engine • in-app UI",
+                    style=MaterialTheme.typography.labelSmall,
+                    color=MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 lastHeard?.let { Text("Heard: $it",style=MaterialTheme.typography.bodySmall) }
             }
