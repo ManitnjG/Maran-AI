@@ -14,7 +14,7 @@ val releaseStorePath=System.getenv("MARAN_KEYSTORE_PATH")
 android {
  namespace="ai.maran.app"; compileSdk=36
  defaultConfig {
-  applicationId="ai.maran.app"; minSdk=26; targetSdk=36; versionCode=14; versionName="0.10.1"
+  applicationId="ai.maran.app"; minSdk=26; targetSdk=36; versionCode=15; versionName="0.10.2"
   buildConfigField("String","MARAN_API_BASE_URL","\"${apiUrl}\"")
   manifestPlaceholders["usesCleartextTraffic"]="false"
  }
