@@ -169,6 +169,12 @@ async def deep_research(query: str) -> dict:
              "numResults": 5,
              "objective": "Prefer official or first-party pages with verifiable contact or factual information and source URLs."}
         ))
-        return _merge_results([first, second])
+        items=[first,second]
+        for url in first.get("sources",[])[:2]:
+            try:
+                items.append(await fetch_page(url))
+            except ToolError:
+                pass
+        return _merge_results(items)
     except ToolError:
         return first
