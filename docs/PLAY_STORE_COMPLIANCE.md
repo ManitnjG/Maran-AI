@@ -10,9 +10,13 @@ This checklist applies to the **play** flavor only. The **full** flavor is a pri
 - No `QUERY_ALL_PACKAGES`.
 - No `READ_CONTACTS`; named calls use the Android system contact picker.
 - No SMS, call-log, location, install-package, device-admin, VPN, exact-alarm, overlay, or notification-listener permissions.
-- Microphone is user-triggered for speech recognition.
+- Microphone is user-triggered for in-app speech recognition; Android privacy indicators remain visible.
 - Camera permission is used for flashlight control only.
+- Notification permission is optional and used only for mission status/approval alerts.
 - Local Android tool results are excluded from cloud-AI history.
+- Knowledge-file AI context is opt-in per upload.
+- External connector actions are separately displayed and confirmed in Approval Centre.
+- A confirmed in-app remote workspace deletion path is implemented.
 - Play release builds require an HTTPS MARAN backend.
 - Release shrinking/obfuscation is enabled.
 - Play and Full variants are built separately.
