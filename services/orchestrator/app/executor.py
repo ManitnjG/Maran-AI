@@ -8,6 +8,7 @@ from .context import context_vault
 from .web_tools import research, deep_research, fetch_page, ToolError
 from .opencode_brain import plan_mission, worker_prompt, review_mission
 from .action_runtime import propose_actions
+from .knowledge import knowledge_store
 
 
 async def execute_local(mission: Mission, checkpoint=None) -> Mission:
@@ -83,6 +84,14 @@ async def execute_local(mission: Mission, checkpoint=None) -> Mission:
                         research_task = asyncio.create_task(operation)
                     evidence = await asyncio.wait_for(asyncio.shield(research_task), timeout=policy.step_timeout_seconds)
                     step.evidence = evidence
+                    output, provider = await asyncio.wait_for(
+                        router.complete(worker_prompt(mission, step, evidence)), timeout=policy.step_timeout_seconds)
+                elif step.agent == "knowledge":
+                    matches=knowledge_store.search(mission.objective,mission.workspace_id,ai_only=True,limit=6)
+                    if not matches:
+                        raise ToolError("No matching knowledge file is available for AI use. Upload a file and enable AI context for it.")
+                    evidence={"records":matches,"sources":[],"verification":"user_document_retrieved"}
+                    step.evidence=evidence
                     output, provider = await asyncio.wait_for(
                         router.complete(worker_prompt(mission, step, evidence)), timeout=policy.step_timeout_seconds)
                 else:
