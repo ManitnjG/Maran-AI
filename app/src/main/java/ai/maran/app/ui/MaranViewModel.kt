@@ -103,6 +103,13 @@ class MaranViewModel(application:Application):AndroidViewModel(application){
   }
  }
  fun deleteKnowledge(id:String)=viewModelScope.launch{action{api.deleteKnowledge(id);reload()}}
+ fun deleteRemoteWorkspace()=viewModelScope.launch{
+  action{
+   api.deleteWorkspace(WorkspaceDeleteRequest())
+   _state.value=_state.value.copy(missions=emptyList(),learnedSkills=emptyList(),memory=emptyList(),knowledge=emptyList(),diagnostics="Remote MARAN workspace data deleted.")
+   reload()
+  }
+ }
  fun clearToken(){tokenStore.save("");api=ApiProvider.create(_state.value.serverUrl,"");refresh()}
  fun checkConnections()=viewModelScope.launch{action{val r=api.diagnostics();_state.value=_state.value.copy(diagnostics=r.entrySet().joinToString("\n"){(k,v)->k+": "+v.asJsonObject.get("message").asString})}}
  fun backup()=viewModelScope.launch{action{_state.value=_state.value.copy(export=ExportResult("maran-backup.json",com.google.gson.GsonBuilder().setPrettyPrinting().create().toJson(api.backup())))}}
