@@ -48,6 +48,7 @@ import java.time.LocalDate
  var amount by remember{mutableStateOf("")}
  var memoryKey by remember{mutableStateOf("")}
  var memoryValue by remember{mutableStateOf("")}
+ var confirmDeleteRemote by remember{mutableStateOf(false)}
  var allowKnowledgeAi by remember{mutableStateOf(false)}
  var notificationsAllowed by remember{
   mutableStateOf(Build.VERSION.SDK_INT<33 || context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)==PackageManager.PERMISSION_GRANTED)
@@ -81,7 +82,14 @@ import java.time.LocalDate
     fileStatus="Knowledge file queued for upload"
    }catch(_:Exception){fileStatus="Cannot read knowledge file (maximum 5 MB)"}
   }
- } Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){
+ } if(confirmDeleteRemote) AlertDialog(
+  onDismissRequest={confirmDeleteRemote=false},
+  title={Text("Delete remote MARAN data?")},
+  text={Text("This deletes remote missions, workspace memory, learned workflows, knowledge files and built-in CRM leads from the default workspace. It does not delete external Gmail, Drive, Calendar, GitHub, social or Tally data.")},
+  confirmButton={TextButton(onClick={confirmDeleteRemote=false;vm.deleteRemoteWorkspace()}){Text("Delete remote data")}},
+  dismissButton={TextButton(onClick={confirmDeleteRemote=false}){Text("Cancel")}}
+ )
+ Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){
   MaranSectionHeading("Autonomous agent runtime","Safe work can continue through bounded background cycles")
   Text("MARAN plans, assigns workers, executes supported tools, observes results, verifies outputs, retries eligible failures, and learns reusable workflows. Consequential actions still require approval. OTP, CAPTCHA, passwords, PINs, CVV, biometrics and security prompts are never automated.",style=MaterialTheme.typography.bodySmall)
   Text("Learned workflows: "+state.learnedSkills.size,style=MaterialTheme.typography.bodySmall)
@@ -145,6 +153,10 @@ import java.time.LocalDate
   }
   MaranPrimaryButton(label="Test connections",onClick={vm.checkConnections()},enabled=!state.busy)
   state.diagnostics?.let{Text(it)}
+  MaranSectionHeading("Privacy & data")
+  Text("You can delete MARAN's remote workspace data from inside the app. External service data is controlled by those services.",style=MaterialTheme.typography.bodySmall)
+  MaranSecondaryButton("Delete remote MARAN data",onClick={confirmDeleteRemote=true},enabled=!state.busy)
+
   MaranSectionHeading("Saved work")
   MaranSecondaryButton(label="Export mission backup",onClick={vm.backup()},enabled=!state.busy)
   MaranSecondaryButton(label="Restore mission backup",onClick={restoreFile.launch(arrayOf("application/json","text/plain","application/octet-stream"))},enabled=!state.busy)
