@@ -4,7 +4,7 @@ import os
 import secrets
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
-from .models import Mission, MissionCreate, MissionStatus, ApprovalDecision, StopRequest, VoiceCommand, WorkerCreate, MemoryWrite
+from .models import Mission, MissionCreate, MissionStatus, ApprovalDecision, ActionDecision, StopRequest, VoiceCommand, WorkerCreate, MemoryWrite
 from .planner import local_plan
 from .store import store
 from .executor import execute_local
@@ -18,6 +18,7 @@ from .context import context_vault
 from .providers import configured_router
 from .router import ProviderError
 from .tool_registry import registry as tool_registry
+from .action_runtime import execute_action
 
 @asynccontextmanager
 async def lifespan(app):
@@ -154,6 +155,54 @@ async def approve(mission_id:str,decision:ApprovalDecision):
     m.status=MissionStatus.running
     store.put(m)
     return await run_mission(mission_id)
+
+@app.get("/approvals")
+def approvals():
+    out=[]
+    for m in store.all():
+        if m.status == MissionStatus.waiting_approval or any(a.status in ("waiting_approval","needs_connection","failed") for a in m.actions):
+            out.append({
+                "mission_id":m.id,
+                "objective":m.objective,
+                "mission_approval":m.status == MissionStatus.waiting_approval and not m.actions,
+                "actions":[a.model_dump(mode="json") for a in m.actions if a.status in ("waiting_approval","needs_connection","failed")],
+            })
+    return out
+
+@app.post("/missions/{mission_id}/actions/{action_id}/decision",response_model=Mission)
+async def decide_action(mission_id:str, action_id:str, decision:ActionDecision):
+    m=store.get(mission_id)
+    if not m: raise HTTPException(404,"Mission not found")
+    action=next((a for a in m.actions if a.id==action_id),None)
+    if not action: raise HTTPException(404,"Action not found")
+    if action.status=="completed": raise HTTPException(409,"Action is already completed")
+    if not decision.approved:
+        action.approved=False
+        action.status="rejected"
+        action.error=decision.note or "Rejected by user"
+        m.events.append({"type":"action_rejected","action_id":action.id,"tool_id":action.tool_id,"note":decision.note})
+    else:
+        action.approved=True
+        action.status="approved"
+        m.events.append({"type":"action_approved","action_id":action.id,"tool_id":action.tool_id,"note":decision.note})
+        await execute_action(action)
+        m.events.append({
+            "type":"action_completed" if action.status=="completed" else "action_blocked",
+            "action_id":action.id,"tool_id":action.tool_id,
+            "verification":action.verification,"reason":action.error,
+        })
+    pending=[a for a in m.actions if a.status=="waiting_approval"]
+    blocked=[a for a in m.actions if a.status in ("failed","needs_connection")]
+    if pending:
+        m.status=MissionStatus.waiting_approval
+    elif blocked:
+        m.status=MissionStatus.blocked
+    else:
+        m.status=MissionStatus.completed
+        if m.result is None: m.result={}
+        m.result["summary"]="Mission completed with reviewed external actions."
+        m.result["note"]="Completed actions were acknowledged by their provider. Provider acknowledgement is not a guarantee of downstream delivery or business outcome."
+    return store.put(m)
 
 @app.post("/missions/{mission_id}/stop",response_model=Mission)
 async def stop_work(mission_id:str,request:StopRequest):
