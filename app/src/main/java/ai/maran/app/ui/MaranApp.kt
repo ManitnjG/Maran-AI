@@ -187,7 +187,7 @@ private enum class Tab(val label:String,val icon:ImageVector){Home("Home",Icons.
  Column(Modifier.fillMaxSize().padding(20.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){
   MaranSectionHeading("Approval Centre","Review the exact plan or external action before anything consequential runs")
   Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){
-   AssistChip(onClick={},label={Text("\${waiting.size} waiting")})
+   AssistChip(onClick={},label={Text("${waiting.size} waiting")})
    MaranSecondaryButton("Refresh",onRefresh)
   }
   state.error?.let{Text(it,color=MaterialTheme.colorScheme.error)}
