@@ -265,7 +265,11 @@ async def decide_action(mission_id:str, action_id:str, decision:ActionDecision):
         m.status=MissionStatus.completed
         if m.result is None: m.result={}
         m.result["summary"]="Mission completed with reviewed external actions."
-        m.result["note"]="Completed actions were acknowledged by their provider. Provider acknowledgement is not a guarantee of downstream delivery or business outcome."
+        m.result["note"]="Completed actions were acknowledged or read-back verified where the connector scope allowed it. This is not a guarantee of downstream business outcome."
+        learned=skill_registry.learn(m)
+        if learned:
+            m.learned_skill_id=learned["id"]
+            m.events.append({"type":"skill_learned","skill_id":learned["id"],"name":learned["name"]})
     return store.put(m)
 
 @app.post("/missions/{mission_id}/stop",response_model=Mission)
