@@ -35,6 +35,23 @@ class PlanStep(BaseModel):
     error: str | None = None
     evidence: dict[str, Any] | None = None
 
+class ActionIntent(BaseModel):
+    id: str = Field(default_factory=lambda: "action-" + str(uuid4()))
+    tool_id: str
+    title: str
+    args: dict[str, Any] = Field(default_factory=dict)
+    reason: str | None = None
+    status: str = "waiting_approval"
+    connection_status: str = "unknown"
+    requires_approval: bool = True
+    approved: bool = False
+    attempts: int = 0
+    result: dict[str, Any] | None = None
+    verification: str = "pending"
+    error: str | None = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
 class Mission(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid4()))
     objective: str
@@ -43,6 +60,7 @@ class Mission(BaseModel):
     verification: Verification = Verification.pending
     assigned_agents: list[str] = Field(default_factory=list)
     plan: list[PlanStep] = Field(default_factory=list)
+    actions: list[ActionIntent] = Field(default_factory=list)
     events: list[dict[str, Any]] = Field(default_factory=list)
     result: dict[str, Any] | None = None
     autonomy_enabled: bool = True
@@ -66,6 +84,10 @@ class StopRequest(BaseModel):
     reason: str = "Stopped by Manager MARAN"
 
 class ApprovalDecision(BaseModel):
+    approved: bool
+    note: str | None = None
+
+class ActionDecision(BaseModel):
     approved: bool
     note: str | None = None
 
