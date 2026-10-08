@@ -39,7 +39,7 @@ async def lifespan(app):
     for task in tasks: task.cancel()
     await asyncio.gather(*tasks, return_exceptions=True)
 
-app=FastAPI(title="MARAN Orchestrator",version="0.6.0",lifespan=lifespan)
+app=FastAPI(title="MARAN Orchestrator",version="0.11.0",lifespan=lifespan)
 
 # Run one ASGI worker: active task ownership is process-local.
 active_runs: dict[str, asyncio.Task] = {}
