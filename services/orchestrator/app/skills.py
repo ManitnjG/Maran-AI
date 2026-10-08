@@ -98,6 +98,11 @@ class SkillRegistry:
             self.db.commit()
         return next((s for s in self.all(mission.workspace_id) if s["id"] == skill_id), None)
 
+    def clear(self, workspace_id: str = "default") -> int:
+        with self.lock, self.db:
+            cur = self.db.execute("DELETE FROM learned_skills WHERE workspace_id=?", (workspace_id,))
+        return cur.rowcount
+
     def delete(self, skill_id: str, workspace_id: str = "default") -> bool:
         with self.lock, self.db:
             cur = self.db.execute(
