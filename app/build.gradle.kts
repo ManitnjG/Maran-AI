@@ -14,7 +14,7 @@ val releaseStorePath=System.getenv("MARAN_KEYSTORE_PATH")
 android {
  namespace="ai.maran.app"; compileSdk=36
  defaultConfig {
-  applicationId="ai.maran.app"; minSdk=26; targetSdk=36; versionCode=15; versionName="0.10.2"
+  applicationId="ai.maran.app"; minSdk=26; targetSdk=36; versionCode=16; versionName="0.11.0"
   buildConfigField("String","MARAN_API_BASE_URL","\"${apiUrl}\"")
   manifestPlaceholders["usesCleartextTraffic"]="false"
  }
@@ -59,6 +59,7 @@ android {
 dependencies {
  implementation(platform("androidx.compose:compose-bom:2025.01.01"))
  implementation("androidx.activity:activity-compose:1.10.0")
+ implementation("androidx.core:core-ktx:1.15.0")
  implementation("androidx.compose.material3:material3")
  implementation("androidx.compose.material:material-icons-extended")
  implementation("androidx.compose.ui:ui"); implementation("androidx.compose.ui:ui-tooling-preview")
