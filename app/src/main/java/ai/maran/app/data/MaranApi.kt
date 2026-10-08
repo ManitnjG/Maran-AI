@@ -86,6 +86,14 @@ data class KnowledgeDoc(
  val characters:Int=0,
  val created_at:String?=null
 )
+data class KnowledgeHit(
+ val document_id:String,
+ val name:String,
+ val allow_ai:Boolean=false,
+ val chunk:Int=0,
+ val snippet:String,
+ val score:Int=0
+)
 data class MemoryWrite(val key:String,val value:String,val workspace_id:String="default")
 data class StopRequest(val reason:String="Stopped by user")
 data class ApprovalDecision(val approved:Boolean,val note:String?=null)
@@ -116,6 +124,7 @@ interface MaranApi {
  @GET("skills") suspend fun skills(@Query("workspace_id") workspaceId:String="default"):List<LearnedSkillDto>
  @GET("memory") suspend fun memory(@Query("workspace_id") workspaceId:String="default"):List<MemoryItem>
  @GET("knowledge") suspend fun knowledge(@Query("workspace_id") workspaceId:String="default"):List<KnowledgeDoc>
+ @GET("knowledge/search") suspend fun searchKnowledge(@Query("q") query:String,@Query("workspace_id") workspaceId:String="default",@Query("limit") limit:Int=8):List<KnowledgeHit>
  @Multipart
  @POST("knowledge/upload")
  suspend fun uploadKnowledge(
