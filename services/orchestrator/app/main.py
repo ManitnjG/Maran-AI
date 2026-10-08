@@ -140,9 +140,18 @@ class WorkspaceDeleteRequest(BaseModel):
     workspace_id: str = "default"
 
 @app.post("/workspace/delete")
-def delete_workspace(req:WorkspaceDeleteRequest):
+async def delete_workspace(req:WorkspaceDeleteRequest):
     if not req.confirmed:
         raise HTTPException(409,"Remote data deletion requires explicit confirmation")
+    mission_ids=[m.id for m in store.all() if m.workspace_id==req.workspace_id]
+    tasks=[]
+    for mission_id in mission_ids:
+        task=active_runs.pop(mission_id,None)
+        if task:
+            task.cancel()
+            tasks.append(task)
+    if tasks:
+        await asyncio.gather(*tasks,return_exceptions=True)
     mission_ids=store.clear_workspace(req.workspace_id)
     context_vault.delete_many(mission_ids)
     memory_count=memory_store.clear(req.workspace_id)
