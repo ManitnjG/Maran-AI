@@ -133,6 +133,30 @@ def forget_memory(key:str,workspace_id:str="default"):
         raise HTTPException(404,"Memory item not found")
     return {"ok":True,"key":key}
 
+class WorkspaceDeleteRequest(BaseModel):
+    confirmed: bool = False
+    workspace_id: str = "default"
+
+@app.post("/workspace/delete")
+def delete_workspace(req:WorkspaceDeleteRequest):
+    if not req.confirmed:
+        raise HTTPException(409,"Remote data deletion requires explicit confirmation")
+    mission_ids=store.clear_workspace(req.workspace_id)
+    context_vault.delete_many(mission_ids)
+    memory_count=memory_store.clear(req.workspace_id)
+    skill_count=skill_registry.clear(req.workspace_id)
+    knowledge_count=knowledge_store.clear(req.workspace_id)
+    crm_count=lead_store.clear() if req.workspace_id=="default" else 0
+    return {
+        "ok":True,
+        "workspace_id":req.workspace_id,
+        "missions_deleted":len(mission_ids),
+        "memory_deleted":memory_count,
+        "skills_deleted":skill_count,
+        "knowledge_deleted":knowledge_count,
+        "crm_leads_deleted":crm_count,
+    }
+
 @app.get("/knowledge")
 def knowledge_list(workspace_id:str="default"):
     return knowledge_store.list(workspace_id)
