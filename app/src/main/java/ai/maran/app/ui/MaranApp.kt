@@ -19,8 +19,21 @@ import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.viewmodel.compose.viewModel
 import ai.maran.app.data.RemoteMission
 private enum class Tab(val label:String,val icon:ImageVector){Home("Home",Icons.Rounded.Home),Missions("Missions",Icons.Rounded.Checklist),Approvals("Approve",Icons.Rounded.FactCheck),Ai("AI",Icons.Rounded.AutoAwesome),Workforce("Workers",Icons.Rounded.Groups),Tools("Tools",Icons.Rounded.Build)}
-@Composable fun MaranApp(vm:MaranViewModel=viewModel()){
- var tab by remember{mutableStateOf(Tab.Home)}
+@Composable fun MaranApp(vm:MaranViewModel=viewModel(),initialTab:String?=null){
+ var tab by remember{mutableStateOf(
+  when(initialTab){
+   "approvals"->Tab.Approvals
+   "missions"->Tab.Missions
+   else->Tab.Home
+  }
+ )}
+ LaunchedEffect(initialTab){
+  tab=when(initialTab){
+   "approvals"->Tab.Approvals
+   "missions"->Tab.Missions
+   else->tab
+  }
+ }
  val state by vm.state.collectAsState()
  var voiceStart by remember { mutableIntStateOf(0) }
  var pendingVoiceCommand by remember { mutableStateOf<String?>(null) }
