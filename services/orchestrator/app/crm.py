@@ -50,6 +50,11 @@ class LeadStore:
         cols = ["id","name","company","email","phone","source","status","notes","created_at","updated_at"]
         return [dict(zip(cols, r)) for r in rows]
 
+    def clear(self) -> int:
+        with self.lock, self.db:
+            cur=self.db.execute("DELETE FROM crm_leads")
+        return cur.rowcount
+
     def update_status(self, lead_id: str, status: str, notes: str | None = None) -> dict | None:
         now = datetime.now(timezone.utc).isoformat()
         with self.lock, self.db:
