@@ -4,6 +4,7 @@ import os
 import secrets
 from fastapi import FastAPI, HTTPException, Request, UploadFile, File, Form
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel, Field
 from .models import Mission, MissionCreate, MissionStatus, ApprovalDecision, ActionDecision, StopRequest, VoiceCommand, WorkerCreate, MemoryWrite
 from .planner import local_plan
 from .store import store
@@ -20,6 +21,7 @@ from .router import ProviderError
 from .tool_registry import registry as tool_registry
 from .action_runtime import execute_action
 from .knowledge import knowledge_store, KnowledgeError, MAX_FILE_BYTES
+from .crm import LeadInput, lead_store
 
 @asynccontextmanager
 async def lifespan(app):
@@ -307,7 +309,6 @@ def mission_context(mission_id:str):
     return context_vault.get(mission_id)
 
 # Authenticated utility endpoints used by the Android Tools screen.
-from pydantic import BaseModel, Field
 from fastapi.responses import Response
 from .business_tools import SalesVoucher, sales_voucher_xml
 from .capabilities import capabilities, diagnostics
@@ -390,8 +391,6 @@ from .integrations import (
     whatsapp_send, facebook_post, instagram_post, linkedin_post,
     twilio_sms, twilio_call, tally_post_xml,
 )
-from .crm import LeadInput, lead_store
-
 class ConfirmedAction(BaseModel):
     confirmed: bool = False
 
