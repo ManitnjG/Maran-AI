@@ -26,7 +26,7 @@ import kotlin.coroutines.resumeWithException
 const val OPENROUTER_NEMOTRON_FREE = "nvidia/nemotron-3.5-lightning:free"
 const val OPENROUTER_FREE_ROUTER = "openrouter/free"
 
-data class AiMessage(val role:String,val content:String)
+data class AiMessage(val role:String,val content:String,val localOnly:Boolean=false)
 
 class OpenRouterFailure(val status:Int, message:String):IOException(message)
 

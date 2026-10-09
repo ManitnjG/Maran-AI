@@ -5,8 +5,10 @@ from .policies import policy
 from .providers import configured_router
 from .router import ProviderError
 from .context import context_vault
-from .web_tools import research, fetch_page, ToolError
+from .web_tools import research, deep_research, fetch_page, ToolError
 from .opencode_brain import plan_mission, worker_prompt, review_mission
+from .action_runtime import propose_actions
+from .knowledge import knowledge_store
 
 
 async def execute_local(mission: Mission, checkpoint=None) -> Mission:
@@ -75,13 +77,21 @@ async def execute_local(mission: Mission, checkpoint=None) -> Mission:
             mission.events.append({"type":"step_started","step_id":step.id,"attempt":step.attempts})
             save()
             try:
-                if step.agent in ("research", "tour_leads", "seo"):
+                if step.agent in ("research", "tour_leads", "itinerary", "seo", "marketing"):
                     if research_task is None:
                         urls = re.findall(r"https?://[^\s<>]+", mission.objective)
-                        operation = fetch_page(urls[0].rstrip(".,)")) if urls else research(mission.objective)
+                        operation = fetch_page(urls[0].rstrip(".,)")) if urls else deep_research(mission.objective)
                         research_task = asyncio.create_task(operation)
                     evidence = await asyncio.wait_for(asyncio.shield(research_task), timeout=policy.step_timeout_seconds)
                     step.evidence = evidence
+                    output, provider = await asyncio.wait_for(
+                        router.complete(worker_prompt(mission, step, evidence)), timeout=policy.step_timeout_seconds)
+                elif step.agent == "knowledge":
+                    matches=knowledge_store.search(mission.objective,mission.workspace_id,ai_only=True,limit=6)
+                    if not matches:
+                        raise ToolError("No matching knowledge file is available for AI use. Upload a file and enable AI context for it.")
+                    evidence={"records":matches,"sources":[],"verification":"user_document_retrieved"}
+                    step.evidence=evidence
                     output, provider = await asyncio.wait_for(
                         router.complete(worker_prompt(mission, step, evidence)), timeout=policy.step_timeout_seconds)
                 else:
@@ -142,11 +152,31 @@ async def execute_local(mission: Mission, checkpoint=None) -> Mission:
                 step.status = "blocked"
                 step.error = "Waiting for worker drafts before OpenCode review."
     mission.verification = Verification.partial if any(s.evidence for s in mission.plan) else Verification.unverified
+
+    if not blocked and not mission.actions:
+        mission.actions = await propose_actions(mission, router)
+        if mission.actions:
+            mission.status = MissionStatus.waiting_approval
+            mission.result = {
+                "summary": "Drafts are ready. External action is waiting for your approval.",
+                "completed_steps": completed,
+                "blocked_steps": [],
+                "failed_steps": [],
+                "note": "No external action has run yet. Review the exact tool and arguments in Approval Centre."
+            }
+            mission.events.append({
+                "type": "action_approval_required",
+                "action_ids": [a.id for a in mission.actions],
+                "count": len(mission.actions),
+            })
+            save()
+            return mission
+
     mission.status = MissionStatus.blocked if blocked else MissionStatus.completed
     mission.result = {
         "summary": "Mission needs configuration or missing steps" if blocked else "Results ready for review",
         "completed_steps": completed, "blocked_steps": blocked, "failed_steps": [],
-        "note": "No external actions were performed. Sources and drafts need review; they are not confirmed leads or completed business transactions."
+        "note": "No unapproved external action was performed. Research evidence and AI drafts still need normal human review."
     }
     mission.events.append({"type": "mission_blocked" if blocked else "mission_completed", "verification": mission.verification.value})
     save()

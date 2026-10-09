@@ -15,6 +15,7 @@ _READ_TOOLS = (
     ToolSpec("mission_memory","read_workspace_memory","none",False,"available"),
     ToolSpec("skill_registry","read_learned_skills","none",False,"available"),
     ToolSpec("mission_context","read_outputs","none",False,"available"),
+    ToolSpec("knowledge_search","read_user_knowledge","none",False,"available"),
 )
 
 def registry():
@@ -30,8 +31,10 @@ def registry():
     return out
 
 def tool_for_agent(agent_id: str) -> str | None:
-    if agent_id in {"research","tour_leads","seo"}:
+    if agent_id in {"research","tour_leads","itinerary","seo","marketing"}:
         return "public_web_search"
+    if agent_id == "knowledge":
+        return "knowledge_search"
     if agent_id == "verifier":
         return "mission_context"
     return None

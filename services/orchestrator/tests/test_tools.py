@@ -56,7 +56,7 @@ def test_research_mission_uses_opencode_synthesis(monkeypatch,provider):
     async def found(query):
         calls.append(query)
         return normalize({'content':[{'type':'text','text':'Title: Example\nURL: https://example.com\nPublic company listing'}]})
-    monkeypatch.setattr('app.executor.research',found)
+    monkeypatch.setattr('app.executor.deep_research',found)
     m=client.post('/missions',json={'objective':'Find tour leads'}).json()
     done=client.post(f'/missions/{m["id"]}/run').json()
     assert done['status']=='completed'

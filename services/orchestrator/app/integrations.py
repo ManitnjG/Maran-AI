@@ -145,6 +145,40 @@ async def drive_upload_text(name: str, content: str, mime_type: str = "text/plai
     return r.json()
 
 
+
+async def gmail_get(message_id: str) -> dict[str, Any]:
+    async with httpx.AsyncClient(timeout=30) as client:
+        r=await client.get(
+            f"https://gmail.googleapis.com/gmail/v1/users/me/messages/{quote(message_id,safe='')}",
+            headers=_google_headers(),
+            params={"format":"metadata","metadataHeaders":["To","Subject","Date"]},
+        )
+    if r.status_code>=300:
+        raise IntegrationError(f"Gmail verification failed ({r.status_code})")
+    return r.json()
+
+
+async def calendar_get(event_id: str) -> dict[str, Any]:
+    async with httpx.AsyncClient(timeout=30) as client:
+        r=await client.get(
+            f"https://www.googleapis.com/calendar/v3/calendars/primary/events/{quote(event_id,safe='')}",
+            headers=_google_headers(),
+        )
+    if r.status_code>=300:
+        raise IntegrationError(f"Calendar verification failed ({r.status_code})")
+    return r.json()
+
+
+async def drive_get(file_id: str) -> dict[str, Any]:
+    async with httpx.AsyncClient(timeout=30) as client:
+        r=await client.get(
+            f"https://www.googleapis.com/drive/v3/files/{quote(file_id,safe='')}?fields=id,name,trashed,webViewLink",
+            headers=_google_headers(),
+        )
+    if r.status_code>=300:
+        raise IntegrationError(f"Drive verification failed ({r.status_code})")
+    return r.json()
+
 def _github_headers() -> dict[str, str]:
     token = os.getenv("GITHUB_TOKEN", "").strip()
     if not token:

@@ -9,6 +9,7 @@ on:
       - 'gradle.properties'
       - '.github/workflows/android.yml'
       - '.github/workflows/release.yml'
+      - '.github/workflows/play-release.yml'
   pull_request:
     paths:
       - 'app/**'
@@ -16,10 +17,14 @@ on:
       - 'settings.gradle.kts'
       - 'gradle.properties'
       - '.github/workflows/android.yml'
+      - '.github/workflows/release.yml'
+      - '.github/workflows/play-release.yml'
   workflow_dispatch:
+
 concurrency:
   group: android-${{ github.ref }}
   cancel-in-progress: true
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -31,34 +36,110 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
+      - name: Install Android 16 SDK
+        run: |
+          SDK_ROOT="/usr/local/lib/android/sdk"
+          SDKMANAGER="$(find "$SDK_ROOT/cmdline-tools" -type f -name sdkmanager | sort -V | tail -n 1)"
+          test -x "$SDKMANAGER"
+          echo "ANDROID_HOME=$SDK_ROOT" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$SDK_ROOT" >> "$GITHUB_ENV"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "platforms;android-36" "build-tools;36.0.0"
       - uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: '8.9'
-      - name: Build debug APK
+          gradle-version: '8.11.1'
+
+      - name: Build and test Play and Full variants
         env:
           MARAN_API_BASE_URL: ${{ secrets.MARAN_API_BASE_URL }}
         run: |
-          if [ -n "$MARAN_API_BASE_URL" ]; then
-            gradle :app:testDebugUnitTest :app:assembleDebug --stacktrace "-PMARAN_API_BASE_URL=$MARAN_API_BASE_URL"
-          else
-            gradle :app:testDebugUnitTest :app:assembleDebug --stacktrace
-          fi
+          API_URL="${MARAN_API_BASE_URL:-https://example.invalid/}"
+          gradle             :app:testPlayDebugUnitTest             :app:testFullDebugUnitTest             :app:assemblePlayDebug             :app:assembleFullDebug             :app:bundlePlayRelease             --stacktrace "-PMARAN_API_BASE_URL=$API_URL"
+
+      - name: Verify Play manifest excludes restricted surfaces
+        run: |
+          PLAY_MANIFEST="$(find app/build/intermediates -type f -name AndroidManifest.xml -path '*playRelease*' | head -n 1)"
+          test -n "$PLAY_MANIFEST"
+          echo "Checking $PLAY_MANIFEST"
+          python - "$PLAY_MANIFEST" <<'PY'
+          import sys
+          import xml.etree.ElementTree as ET
+
+          path=sys.argv[1]
+          root=ET.parse(path).getroot()
+          A="{http://schemas.android.com/apk/res/android}"
+          permissions={node.get(A+"name") for node in root.findall("uses-permission")}
+          forbidden={
+              "android.permission.READ_CONTACTS",
+              "android.permission.QUERY_ALL_PACKAGES",
+              "android.permission.REQUEST_INSTALL_PACKAGES",
+              "android.permission.READ_SMS",
+              "android.permission.READ_CALL_LOG",
+          }
+          found=permissions & forbidden
+          if found:
+              raise SystemExit("Forbidden Play permission(s): "+", ".join(sorted(found)))
+
+          app=root.find("application")
+          if app is None:
+              raise SystemExit("Merged Play manifest has no application")
+          if app.get(A+"usesCleartextTraffic") != "false":
+              raise SystemExit("Play release must disable cleartext traffic")
+
+          for service in app.findall("service"):
+              if service.get(A+"permission") == "android.permission.BIND_ACCESSIBILITY_SERVICE":
+                  raise SystemExit("Play flavor must not declare an AccessibilityService")
+              for action in service.findall("./intent-filter/action"):
+                  if action.get(A+"name") == "android.accessibilityservice.AccessibilityService":
+                      raise SystemExit("Play flavor contains AccessibilityService intent")
+
+          queries=root.find("queries")
+          if queries is not None:
+              for intent in queries.findall("intent"):
+                  actions={n.get(A+"name") for n in intent.findall("action")}
+                  categories={n.get(A+"name") for n in intent.findall("category")}
+                  if "android.intent.action.MAIN" in actions and "android.intent.category.LAUNCHER" in categories:
+                      raise SystemExit("Play flavor must not declare broad launcher-app inventory visibility")
+
+          uses_sdk=root.find("uses-sdk")
+          target=(uses_sdk.get(A+"targetSdkVersion") if uses_sdk is not None else None)
+          if target not in {"36","0x24"}:
+              raise SystemExit(f"Expected targetSdk 36, got {target!r}")
+
+          print("Play merged-manifest policy checks passed")
+          PY
+
       - uses: actions/upload-artifact@v4
         with:
-          name: maran-debug-apk
-          path: app/build/outputs/apk/debug/app-debug.apk
+          name: maran-play-debug-apk
+          path: app/build/outputs/apk/play/debug/app-play-debug.apk
           retention-days: 14
           if-no-files-found: error
-      - name: Publish installable preview
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: maran-full-debug-apk
+          path: app/build/outputs/apk/full/debug/app-full-debug.apk
+          retention-days: 14
+          if-no-files-found: error
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: maran-play-release-aab-unsigned
+          path: app/build/outputs/bundle/playRelease/app-play-release.aab
+          retention-days: 14
+          if-no-files-found: error
+
+      - name: Publish Full installable preview
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: preview-${{ github.run_number }}
           target_commitish: ${{ github.sha }}
-          name: MARAN 0.10.0 autonomous preview ${{ github.run_number }}
+          name: MARAN 0.11.0 Full preview ${{ github.run_number }}
           prerelease: true
-          files: app/build/outputs/apk/debug/app-debug.apk
+          files: app/build/outputs/apk/full/debug/app-full-debug.apk
           body: |
-            Development APK for testing. This is debug-signed, not a production-signed release.
-            Autonomous missions use bounded Manager cycles, retries, verification, learned workflows, WorkManager continuation, and explicit approval gates. Installed-app inventory and supported native phone commands run locally without an AI key. General OpenRouter chat requires a key saved on the device.
-            Back up saved work before updating. CI debug-signing keys can differ between runs; if Android rejects an update, uninstalling first erases app-local settings and encrypted keys.
+            Development Full APK for private testing. Debug-signed, not production-signed.
+            This Full build includes optional user-initiated Accessibility screen controls and broader local launcher-app visibility.
+            Do not upload this Full flavor to Google Play. Use the Play flavor for store distribution.

@@ -1,9 +1,7 @@
 package ai.maran.app.ui
 
 import android.content.Intent
-import android.net.Uri
 import android.provider.Settings
-import androidx.compose.foundation.layout.Row
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.platform.LocalContext
@@ -21,37 +19,31 @@ internal fun screenCommand(text:String):Boolean {
 internal fun rememberScreenCommand(vm:AiChatViewModel):(String)->Boolean {
     val context=LocalContext.current
     var pending by remember { mutableStateOf<String?>(null) }
+
     if(pending!=null) AlertDialog(
         onDismissRequest={pending=null},
-        title={Text("Enable MARAN Device Control?")},
-        text={Text("This optional service can inspect visible screen text and perform supported screen actions after your command. If Android says Restricted setting, open MARAN App Info and use its three-dot menu to Allow restricted settings (if offered) for an APK you trust. Then enable MARAN Device Control in Accessibility settings. It cannot bypass passwords, OTPs, payments or Android security prompts.")},
+        title={Text("Enable optional Device Control?")},
+        text={Text(
+            "MARAN Device Control can read visible text and UI labels on the active screen and perform only your explicit Back, Home, Recents, scroll or exact-label tap command. It does not passively log screen events. It will not act on passwords, OTP, CAPTCHA, payments, permissions, sign-in or security prompts. Device-control results are kept local and excluded from cloud AI context. You can disable the service at any time in Android Accessibility settings."
+        )},
         confirmButton={TextButton(onClick={
             pending=null
             try {
                 context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
-                vm.voiceError("Enable MARAN Device Control in Accessibility settings, then repeat your command.")
+                vm.voiceError("Enable MARAN Device Control if you agree, then repeat your command.")
             } catch(_:Exception) {
                 vm.voiceError("Could not open Accessibility settings.")
             }
-        }){Text("Open Settings")}},
-        dismissButton={
-            Row {
-                TextButton(onClick={
-                    pending=null
-                    try { context.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
-                        Uri.fromParts("package",context.packageName,null))) }
-                    catch(_:Exception) { vm.voiceError("Could not open MARAN App Info.") }
-                }) { Text("App Info") }
-                TextButton(onClick={pending=null}) { Text("Cancel") }
-            }
-        }
+        }){Text("I agree — open settings")}},
+        dismissButton={TextButton(onClick={pending=null}){Text("Cancel")}}
     )
+
     return { command ->
         if(!screenCommand(command)) false
         else {
             if(!MaranAccessibilityService.available()) {
                 pending=command
-                vm.voiceError("Device Control is disabled. Enable it only if you want MARAN to perform screen commands.")
+                vm.voiceError("Device Control is disabled. It is optional and requires your explicit consent.")
             } else {
                 val normalized=command.trim().replace(Regex("""^(?i:hey\s+)?(?i:maran)[,:\s!.]*"""),"").trim()
                 val result=MaranAccessibilityService.run(normalized)
