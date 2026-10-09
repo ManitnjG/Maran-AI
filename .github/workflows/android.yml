@@ -136,7 +136,7 @@ jobs:
         with:
           tag_name: preview-${{ github.run_number }}
           target_commitish: ${{ github.sha }}
-          name: MARAN 0.10.1 Full preview ${{ github.run_number }}
+          name: MARAN 0.11.0 Full preview ${{ github.run_number }}
           prerelease: true
           files: app/build/outputs/apk/full/debug/app-full-debug.apk
           body: |

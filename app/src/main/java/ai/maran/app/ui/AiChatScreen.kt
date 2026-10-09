@@ -55,10 +55,13 @@ fun AiChatScreen(
     var key by remember { mutableStateOf("") }
     var showKeySetup by remember(state.keySaved) { mutableStateOf(!state.keySaved) }
     var confirmRemove by remember { mutableStateOf(false) }
-    var voiceLanguage by remember { mutableStateOf("en-IN") }
+    var voiceLanguage by remember { mutableStateOf("auto") }
     var lastHeard by remember { mutableStateOf<String?>(null) }
     var liveTranscript by remember { mutableStateOf("") }
     var isListening by remember { mutableStateOf(false) }
+    var rmsLevel by remember { mutableFloatStateOf(0f) }
+    var conversationMode by remember { mutableStateOf(false) }
+    var restartAfterSpeech by remember { mutableIntStateOf(0) }
     val context=LocalContext.current
     val speaker=remember(context) { MaranSpeaker(context) }
     DisposableEffect(speaker) { onDispose { speaker.close() } }
@@ -70,7 +73,12 @@ fun AiChatScreen(
         if(speakNextReply && !state.busy && state.messages.size>replyAfterCount) {
             val reply=state.messages.lastOrNull()?.takeIf { it.role=="assistant" && it.content.isNotBlank() }
             if(reply!=null) {
-                speaker.speak(reply.content.replace(Regex("[*#]"),""),voiceLanguage)
+                val detectedLocale=if(voiceLanguage=="auto"){
+                    if(Regex("[\\u0B80-\\u0BFF]").containsMatchIn(reply.content)) "ta-IN" else "en-IN"
+                } else voiceLanguage
+                speaker.speak(reply.content.replace(Regex("[*#]"),""),detectedLocale){
+                    if(conversationMode) restartAfterSpeech++
+                }
                 speakNextReply=false
             }
         }
@@ -118,6 +126,9 @@ fun AiChatScreen(
     }
 
     fun startVoice() {
+        speaker.stop()
+        speakNextReply=false
+        rmsLevel=0f
         liveTranscript=""
         recognizer.start(
             language=voiceLanguage,
@@ -140,13 +151,20 @@ fun AiChatScreen(
                 liveTranscript=""
                 if(message!="Voice recognition stopped.") vm.voiceError(message)
             },
-            onListening={ active -> isListening=active }
+            onListening={ active -> isListening=active },
+            onRms={ level -> rmsLevel=level }
         )
     }
 
     val permissionLauncher=rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()){granted->
         if(granted) startVoice()
         else vm.voiceError("Microphone permission is required for voice recognition.")
+    }
+
+    LaunchedEffect(restartAfterSpeech) {
+        if(restartAfterSpeech>0 && conversationMode && !state.busy) {
+            if(context.checkSelfPermission(Manifest.permission.RECORD_AUDIO)==PackageManager.PERMISSION_GRANTED) startVoice()
+        }
     }
 
     LaunchedEffect(autoListenSignal) {
@@ -226,6 +244,11 @@ fun AiChatScreen(
                 )
                 Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
                     FilterChip(
+                        selected=voiceLanguage=="auto",
+                        onClick={voiceLanguage="auto"},
+                        label={Text("Auto")}
+                    )
+                    FilterChip(
                         selected=voiceLanguage=="en-IN",
                         onClick={voiceLanguage="en-IN"},
                         label={Text("English")}
@@ -236,15 +259,22 @@ fun AiChatScreen(
                         label={Text("தமிழ்")}
                     )
                 }
+                Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=androidx.compose.ui.Alignment.CenterVertically){
+                    Column(Modifier.weight(1f)){
+                        Text("Hands-free follow-up",style=MaterialTheme.typography.bodyMedium)
+                        Text("After MARAN finishes speaking, listen for your next turn.",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    Switch(checked=conversationMode,onCheckedChange={conversationMode=it})
+                }
                 if(isListening) {
-                    LinearProgressIndicator(Modifier.fillMaxWidth())
+                    LinearProgressIndicator(progress={rmsLevel},modifier=Modifier.fillMaxWidth())
                     Text(
                         if(liveTranscript.isBlank()) "Listening…" else liveTranscript,
                         style=MaterialTheme.typography.bodyLarge
                     )
                     MaranSecondaryButton(
                         label="Stop listening",
-                        onClick=recognizer::stop,
+                        onClick={recognizer.stop();rmsLevel=0f},
                         modifier=Modifier.fillMaxWidth()
                     )
                 } else {
@@ -262,7 +292,7 @@ fun AiChatScreen(
                     )
                 }
                 Text(
-                    if(recognizer.onDevice) "On-device speech • in-app UI" else "System speech engine • in-app UI",
+                    (if(recognizer.onDevice) "On-device speech" else "System speech engine")+" • in-app UI • "+(if(voiceLanguage=="auto")"English/Tamil auto" else voiceLanguage),
                     style=MaterialTheme.typography.labelSmall,
                     color=MaterialTheme.colorScheme.onSurfaceVariant
                 )

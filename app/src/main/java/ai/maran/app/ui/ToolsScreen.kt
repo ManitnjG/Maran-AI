@@ -1,6 +1,10 @@
 package ai.maran.app.ui
 
+import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
+import android.provider.OpenableColumns
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import kotlinx.coroutines.Dispatchers
@@ -44,11 +48,91 @@ import java.time.LocalDate
  var amount by remember{mutableStateOf("")}
  var memoryKey by remember{mutableStateOf("")}
  var memoryValue by remember{mutableStateOf("")}
+ var confirmDeleteRemote by remember{mutableStateOf(false)}
+ var allowKnowledgeAi by remember{mutableStateOf(false)}
+ var knowledgeQuery by remember{mutableStateOf("")}
+ var notificationsAllowed by remember{
+  mutableStateOf(Build.VERSION.SDK_INT<33 || context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)==PackageManager.PERMISSION_GRANTED)
+ }
+ val notificationPermission=rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()){granted->
+  notificationsAllowed=granted
+ }
+ val knowledgeFile=rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()){uri->
+  if(uri!=null)scope.launch{
+   try{
+    val name=withContext(Dispatchers.IO){
+     context.contentResolver.query(uri,arrayOf(OpenableColumns.DISPLAY_NAME),null,null,null)?.use{cursor->
+      if(cursor.moveToFirst())cursor.getString(0) else null
+     } ?: (uri.lastPathSegment ?: "knowledge-file")
+    }
+    val mime=context.contentResolver.getType(uri) ?: "application/octet-stream"
+    val bytes=withContext(Dispatchers.IO){
+     context.contentResolver.openInputStream(uri)?.use{input->
+      val out=java.io.ByteArrayOutputStream()
+      val buffer=ByteArray(8192)
+      var total=0
+      while(true){
+       val n=input.read(buffer);if(n<0)break
+       total+=n;require(total<=5_000_000)
+       out.write(buffer,0,n)
+      }
+      out.toByteArray()
+     } ?: error("No file")
+    }
+    vm.uploadKnowledge(name,mime,bytes,allowKnowledgeAi)
+    fileStatus="Knowledge file queued for upload"
+   }catch(_:Exception){fileStatus="Cannot read knowledge file (maximum 5 MB)"}
+  }
+ }
+ if(confirmDeleteRemote) AlertDialog(
+  onDismissRequest={confirmDeleteRemote=false},
+  title={Text("Delete remote MARAN data?")},
+  text={Text("This deletes remote missions, workspace memory, learned workflows, knowledge files and built-in CRM leads from the default workspace. It does not delete external Gmail, Drive, Calendar, GitHub, social or Tally data.")},
+  confirmButton={TextButton(onClick={confirmDeleteRemote=false;vm.deleteRemoteWorkspace()}){Text("Delete remote data")}},
+  dismissButton={TextButton(onClick={confirmDeleteRemote=false}){Text("Cancel")}}
+ )
  Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){
   MaranSectionHeading("Autonomous agent runtime","Safe work can continue through bounded background cycles")
   Text("MARAN plans, assigns workers, executes supported tools, observes results, verifies outputs, retries eligible failures, and learns reusable workflows. Consequential actions still require approval. OTP, CAPTCHA, passwords, PINs, CVV, biometrics and security prompts are never automated.",style=MaterialTheme.typography.bodySmall)
   Text("Learned workflows: "+state.learnedSkills.size,style=MaterialTheme.typography.bodySmall)
   Text("Background continuation uses Android WorkManager and runs only when network access is available.",style=MaterialTheme.typography.bodySmall)
+
+  MaranSectionHeading("Mission notifications","Get approval, completion and attention alerts")
+  Text(if(notificationsAllowed)"Notifications are enabled" else "Notifications are off",style=MaterialTheme.typography.bodySmall)
+  if(!notificationsAllowed && Build.VERSION.SDK_INT>=33){
+   MaranPrimaryButton("Enable notifications",onClick={notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)})
+  } else {
+   Text("MARAN only notifies for mission approval, completion, blocked or failed states.",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+  }
+
+  MaranSectionHeading("Knowledge files","Your selected reference files; AI use is opt-in per upload")
+  Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=androidx.compose.ui.Alignment.CenterVertically){
+   Column(Modifier.weight(1f)){
+    Text("Allow AI context for this upload",style=MaterialTheme.typography.bodyMedium)
+    Text("Only matching snippets from files you explicitly allow can be inserted into worker prompts.",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+   }
+   Switch(checked=allowKnowledgeAi,onCheckedChange={allowKnowledgeAi=it})
+  }
+  MaranSecondaryButton("Add knowledge file",onClick={
+   knowledgeFile.launch(arrayOf("application/pdf","application/vnd.openxmlformats-officedocument.wordprocessingml.document","text/*","application/json","text/csv"))
+  })
+  state.knowledge.forEach{doc->
+   MaranPanel(Modifier.fillMaxWidth()){
+    Text(doc.name,style=MaterialTheme.typography.titleSmall)
+    Text((doc.characters/1000.0).let{String.format("%.1fK characters",it)}+" • "+if(doc.allow_ai)"AI context allowed" else "Search only",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+    TextButton(onClick={vm.deleteKnowledge(doc.id)}){Text("Remove file")}
+   }
+  }
+
+  MaranInput(knowledgeQuery,{knowledgeQuery=it},label="Search knowledge",modifier=Modifier.fillMaxWidth(),maxLines=2)
+  MaranSecondaryButton("Search files",onClick={vm.searchKnowledge(knowledgeQuery)},enabled=knowledgeQuery.isNotBlank()&&!state.busy)
+  state.knowledgeHits.forEach{hit->
+   MaranPanel(Modifier.fillMaxWidth()){
+    Text(hit.name,style=MaterialTheme.typography.titleSmall)
+    Text(hit.snippet,style=MaterialTheme.typography.bodySmall)
+    Text("Match score: "+hit.score,style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+   }
+  }
 
   MaranSectionHeading("Workspace memory","Preferences and reusable context only — do not store secrets")
   MaranInput(memoryKey,{memoryKey=it},label="Memory key",modifier=Modifier.fillMaxWidth())
@@ -81,6 +165,10 @@ import java.time.LocalDate
   }
   MaranPrimaryButton(label="Test connections",onClick={vm.checkConnections()},enabled=!state.busy)
   state.diagnostics?.let{Text(it)}
+  MaranSectionHeading("Privacy & data")
+  Text("You can delete MARAN's remote workspace data from inside the app. External service data is controlled by those services.",style=MaterialTheme.typography.bodySmall)
+  MaranSecondaryButton("Delete remote MARAN data",onClick={confirmDeleteRemote=true},enabled=!state.busy)
+
   MaranSectionHeading("Saved work")
   MaranSecondaryButton(label="Export mission backup",onClick={vm.backup()},enabled=!state.busy)
   MaranSecondaryButton(label="Restore mission backup",onClick={restoreFile.launch(arrayOf("application/json","text/plain","application/octet-stream"))},enabled=!state.busy)

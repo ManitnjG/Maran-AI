@@ -2,9 +2,10 @@ from contextlib import asynccontextmanager
 import asyncio
 import os
 import secrets
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, UploadFile, File, Form
 from fastapi.responses import JSONResponse
-from .models import Mission, MissionCreate, MissionStatus, ApprovalDecision, StopRequest, VoiceCommand, WorkerCreate, MemoryWrite
+from pydantic import BaseModel, Field
+from .models import Mission, MissionCreate, MissionStatus, ApprovalDecision, ActionDecision, StopRequest, VoiceCommand, WorkerCreate, MemoryWrite
 from .planner import local_plan
 from .store import store
 from .executor import execute_local
@@ -18,6 +19,9 @@ from .context import context_vault
 from .providers import configured_router
 from .router import ProviderError
 from .tool_registry import registry as tool_registry
+from .action_runtime import execute_action
+from .knowledge import knowledge_store, KnowledgeError, MAX_FILE_BYTES
+from .crm import LeadInput, lead_store
 
 @asynccontextmanager
 async def lifespan(app):
@@ -35,7 +39,7 @@ async def lifespan(app):
     for task in tasks: task.cancel()
     await asyncio.gather(*tasks, return_exceptions=True)
 
-app=FastAPI(title="MARAN Orchestrator",version="0.6.0",lifespan=lifespan)
+app=FastAPI(title="MARAN Orchestrator",version="0.11.0",lifespan=lifespan)
 
 # Run one ASGI worker: active task ownership is process-local.
 active_runs: dict[str, asyncio.Task] = {}
@@ -131,6 +135,67 @@ def forget_memory(key:str,workspace_id:str="default"):
         raise HTTPException(404,"Memory item not found")
     return {"ok":True,"key":key}
 
+class WorkspaceDeleteRequest(BaseModel):
+    confirmed: bool = False
+    workspace_id: str = "default"
+
+@app.post("/workspace/delete")
+async def delete_workspace(req:WorkspaceDeleteRequest):
+    if not req.confirmed:
+        raise HTTPException(409,"Remote data deletion requires explicit confirmation")
+    mission_ids=[m.id for m in store.all() if m.workspace_id==req.workspace_id]
+    tasks=[]
+    for mission_id in mission_ids:
+        task=active_runs.pop(mission_id,None)
+        if task:
+            task.cancel()
+            tasks.append(task)
+    if tasks:
+        await asyncio.gather(*tasks,return_exceptions=True)
+    mission_ids=store.clear_workspace(req.workspace_id)
+    context_vault.delete_many(mission_ids)
+    memory_count=memory_store.clear(req.workspace_id)
+    skill_count=skill_registry.clear(req.workspace_id)
+    knowledge_count=knowledge_store.clear(req.workspace_id)
+    crm_count=lead_store.clear() if req.workspace_id=="default" else 0
+    return {
+        "ok":True,
+        "workspace_id":req.workspace_id,
+        "missions_deleted":len(mission_ids),
+        "memory_deleted":memory_count,
+        "skills_deleted":skill_count,
+        "knowledge_deleted":knowledge_count,
+        "crm_leads_deleted":crm_count,
+    }
+
+@app.get("/knowledge")
+def knowledge_list(workspace_id:str="default"):
+    return knowledge_store.list(workspace_id)
+
+@app.get("/knowledge/search")
+def knowledge_search(q:str,workspace_id:str="default",limit:int=8):
+    return knowledge_store.search(q,workspace_id,ai_only=False,limit=limit)
+
+@app.post("/knowledge/upload")
+async def knowledge_upload(
+    file:UploadFile=File(...),
+    workspace_id:str=Form("default"),
+    allow_ai:bool=Form(False),
+):
+    data=await file.read(MAX_FILE_BYTES+1)
+    if len(data)>MAX_FILE_BYTES:
+        raise HTTPException(413,"Knowledge file is larger than 5 MB")
+    try:
+        return knowledge_store.add(workspace_id,file.filename or "knowledge-file",file.content_type or "application/octet-stream",data,allow_ai)
+    except KnowledgeError as exc:
+        raise HTTPException(422,str(exc)) from exc
+
+@app.delete("/knowledge/{document_id}")
+def knowledge_delete(document_id:str,workspace_id:str="default"):
+    if not knowledge_store.delete(document_id,workspace_id):
+        raise HTTPException(404,"Knowledge document not found")
+    return {"ok":True,"document_id":document_id}
+
 @app.get("/missions",response_model=list[Mission])
 def list_missions(): return store.all()
 
@@ -154,6 +219,58 @@ async def approve(mission_id:str,decision:ApprovalDecision):
     m.status=MissionStatus.running
     store.put(m)
     return await run_mission(mission_id)
+
+@app.get("/approvals")
+def approvals():
+    out=[]
+    for m in store.all():
+        if m.status == MissionStatus.waiting_approval or any(a.status in ("waiting_approval","needs_connection","failed") for a in m.actions):
+            out.append({
+                "mission_id":m.id,
+                "objective":m.objective,
+                "mission_approval":m.status == MissionStatus.waiting_approval and not m.actions,
+                "actions":[a.model_dump(mode="json") for a in m.actions if a.status in ("waiting_approval","needs_connection","failed")],
+            })
+    return out
+
+@app.post("/missions/{mission_id}/actions/{action_id}/decision",response_model=Mission)
+async def decide_action(mission_id:str, action_id:str, decision:ActionDecision):
+    m=store.get(mission_id)
+    if not m: raise HTTPException(404,"Mission not found")
+    action=next((a for a in m.actions if a.id==action_id),None)
+    if not action: raise HTTPException(404,"Action not found")
+    if action.status=="completed": raise HTTPException(409,"Action is already completed")
+    if not decision.approved:
+        action.approved=False
+        action.status="rejected"
+        action.error=decision.note or "Rejected by user"
+        m.events.append({"type":"action_rejected","action_id":action.id,"tool_id":action.tool_id,"note":decision.note})
+    else:
+        action.approved=True
+        action.status="approved"
+        m.events.append({"type":"action_approved","action_id":action.id,"tool_id":action.tool_id,"note":decision.note})
+        await execute_action(action)
+        m.events.append({
+            "type":"action_completed" if action.status=="completed" else "action_blocked",
+            "action_id":action.id,"tool_id":action.tool_id,
+            "verification":action.verification,"reason":action.error,
+        })
+    pending=[a for a in m.actions if a.status=="waiting_approval"]
+    blocked=[a for a in m.actions if a.status in ("failed","needs_connection")]
+    if pending:
+        m.status=MissionStatus.waiting_approval
+    elif blocked:
+        m.status=MissionStatus.blocked
+    else:
+        m.status=MissionStatus.completed
+        if m.result is None: m.result={}
+        m.result["summary"]="Mission completed with reviewed external actions."
+        m.result["note"]="Completed actions were acknowledged or read-back verified where the connector scope allowed it. This is not a guarantee of downstream business outcome."
+        learned=skill_registry.learn(m)
+        if learned:
+            m.learned_skill_id=learned["id"]
+            m.events.append({"type":"skill_learned","skill_id":learned["id"],"name":learned["name"]})
+    return store.put(m)
 
 @app.post("/missions/{mission_id}/stop",response_model=Mission)
 async def stop_work(mission_id:str,request:StopRequest):
@@ -205,7 +322,6 @@ def mission_context(mission_id:str):
     return context_vault.get(mission_id)
 
 # Authenticated utility endpoints used by the Android Tools screen.
-from pydantic import BaseModel, Field
 from fastapi.responses import Response
 from .business_tools import SalesVoucher, sales_voucher_xml
 from .capabilities import capabilities, diagnostics
@@ -288,8 +404,6 @@ from .integrations import (
     whatsapp_send, facebook_post, instagram_post, linkedin_post,
     twilio_sms, twilio_call, tally_post_xml,
 )
-from .crm import LeadInput, lead_store
-
 class ConfirmedAction(BaseModel):
     confirmed: bool = False
 

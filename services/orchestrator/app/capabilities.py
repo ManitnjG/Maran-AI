@@ -8,8 +8,8 @@ from .integrations import integration_status
 def capabilities():
     models = [p.provider.name for p in configured_router().providers]
     return {
-        "version": "0.6.0", "models": models, "ai_engine": "provider_router",
-        "brain_stages": ["planning", "worker_assignment", "tool_execution", "observe", "verification", "retry", "skill_learning"],
+        "version": "0.11.0", "models": models, "ai_engine": "provider_router",
+        "brain_stages": ["planning", "worker_assignment", "tool_execution", "observe", "verification", "action_proposal", "approval", "retry", "skill_learning"],
         "access_tested": False,
         "web_enabled": os.getenv("MARAN_WEB_ENABLED", "true").lower() == "true",
         "authentication_enabled": bool(os.getenv("MARAN_ACCESS_TOKEN")),
@@ -23,10 +23,15 @@ def capabilities():
             "persistent_memory": "local_sqlite_non_secret",
             "learned_skills": "local_sqlite_successful_workflows",
             "approval_policy": "deterministic_application_enforced",
+            "action_agent": "approved_real_connector_execution",
+            "approval_centre": "mission_and_action_scoped",
+            "knowledge_files": "pdf_docx_text_opt_in_ai_context",
+            "deep_research": "multi_source_with_bounded_page_following",
+            "remote_data_deletion": "available",
             "output_review": "opencode",
             "tally_voucher_export": "available_for_review",
             "tally_writeback": "not_connected", "gst_filing": "not_connected",
-            "social_publishing": "not_connected", "wake_word": "not_implemented",
+            "social_publishing": "not_connected", "wake_word": "foreground_optional",
         },
         "note": "Autonomy is bounded and permission-aware. Public web research can run automatically. Consequential integrations still require explicit confirmation, and CAPTCHA/OTP/password/PIN/CVV/biometric/security prompts are never automated. OpenCode is first by default; optional OpenRouter or local Ollama fallbacks are used only when explicitly configured."
     }

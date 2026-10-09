@@ -8,8 +8,11 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.RequestBody.Companion.toRequestBody
+import okhttp3.MultipartBody
 
-data class MaranUiState(val missions:List<RemoteMission> = emptyList(),val workers:List<WorkerDto> = emptyList(),val learnedSkills:List<LearnedSkillDto> = emptyList(),val memory:List<MemoryItem> = emptyList(),val busy:Boolean=false,val connected:Boolean=false,val error:String?=null,val serverUrl:String="",val capabilities:Capabilities?=null,val diagnostics:String?=null,val export:ExportResult?=null,val voiceLanguage:String="en-IN")
+data class MaranUiState(val missions:List<RemoteMission> = emptyList(),val workers:List<WorkerDto> = emptyList(),val learnedSkills:List<LearnedSkillDto> = emptyList(),val memory:List<MemoryItem> = emptyList(),val knowledge:List<KnowledgeDoc> = emptyList(),val knowledgeHits:List<KnowledgeHit> = emptyList(),val busy:Boolean=false,val connected:Boolean=false,val error:String?=null,val serverUrl:String="",val capabilities:Capabilities?=null,val diagnostics:String?=null,val export:ExportResult?=null,val voiceLanguage:String="en-IN")
 class MaranViewModel(application:Application):AndroidViewModel(application){
  private val prefs=application.getSharedPreferences("connection",0)
  private val tokenStore=ai.maran.app.security.SecureTokenStore(application)
@@ -22,7 +25,8 @@ class MaranViewModel(application:Application):AndroidViewModel(application){
   val missions=api.missions()
   val learned=try{api.skills()}catch(_:Exception){emptyList()}
   val memory=try{api.memory()}catch(_:Exception){emptyList()}
-  _state.value=_state.value.copy(missions=missions,workers=localWorkers.list(),learnedSkills=learned,memory=memory,connected=true,capabilities=api.capabilities(),error=null)
+  val knowledge=try{api.knowledge()}catch(_:Exception){emptyList()}
+  _state.value=_state.value.copy(missions=missions,workers=localWorkers.list(),learnedSkills=learned,memory=memory,knowledge=knowledge,connected=true,capabilities=api.capabilities(),error=null)
  }
  private suspend fun action(block:suspend ()->Unit){
   _state.value=_state.value.copy(busy=true,error=null)
@@ -76,6 +80,9 @@ class MaranViewModel(application:Application):AndroidViewModel(application){
   _state.value=_state.value.copy(workers=localWorkers.list(),error=null)
  }
  fun decide(id:String,approved:Boolean)=viewModelScope.launch{action{api.approve(id,ApprovalDecision(approved));reload()}}
+ fun decideAction(missionId:String,actionId:String,approved:Boolean)=viewModelScope.launch{
+  action{api.decideAction(missionId,actionId,ActionDecision(approved));reload()}
+ }
  fun run(id:String)=viewModelScope.launch{action{MaranAutonomyWork.enqueue(getApplication(),id);api.autonomousRun(id);reload()}}
  fun stop(id:String)=viewModelScope.launch{action{api.stopMission(id);reload()}}
  fun saveMemory(key:String,value:String)=viewModelScope.launch{
@@ -83,6 +90,30 @@ class MaranViewModel(application:Application):AndroidViewModel(application){
   action{api.remember(MemoryWrite(key.trim(),value.trim()));reload()}
  }
  fun forgetMemory(key:String)=viewModelScope.launch{action{api.forgetMemory(key);reload()}}
+ fun uploadKnowledge(name:String,mimeType:String,bytes:ByteArray,allowAi:Boolean)=viewModelScope.launch{
+  if(bytes.isEmpty()||bytes.size>5_000_000){_state.value=_state.value.copy(error="Knowledge files must be between 1 byte and 5 MB.");return@launch}
+  action{
+   val media=(mimeType.ifBlank{"application/octet-stream"}).toMediaTypeOrNull()
+   val body=bytes.toRequestBody(media)
+   val part=MultipartBody.Part.createFormData("file",name,body)
+   val workspace="default".toRequestBody("text/plain".toMediaTypeOrNull())
+   val allow=allowAi.toString().toRequestBody("text/plain".toMediaTypeOrNull())
+   api.uploadKnowledge(part,workspace,allow)
+   reload()
+  }
+ }
+ fun deleteKnowledge(id:String)=viewModelScope.launch{action{api.deleteKnowledge(id);reload()}}
+ fun searchKnowledge(query:String)=viewModelScope.launch{
+  if(query.isBlank()){_state.value=_state.value.copy(knowledgeHits=emptyList());return@launch}
+  action{_state.value=_state.value.copy(knowledgeHits=api.searchKnowledge(query.trim()))}
+ }
+ fun deleteRemoteWorkspace()=viewModelScope.launch{
+  action{
+   api.deleteWorkspace(WorkspaceDeleteRequest())
+   _state.value=_state.value.copy(missions=emptyList(),learnedSkills=emptyList(),memory=emptyList(),knowledge=emptyList(),diagnostics="Remote MARAN workspace data deleted.")
+   reload()
+  }
+ }
  fun clearToken(){tokenStore.save("");api=ApiProvider.create(_state.value.serverUrl,"");refresh()}
  fun checkConnections()=viewModelScope.launch{action{val r=api.diagnostics();_state.value=_state.value.copy(diagnostics=r.entrySet().joinToString("\n"){(k,v)->k+": "+v.asJsonObject.get("message").asString})}}
  fun backup()=viewModelScope.launch{action{_state.value=_state.value.copy(export=ExportResult("maran-backup.json",com.google.gson.GsonBuilder().setPrettyPrinting().create().toJson(api.backup())))}}

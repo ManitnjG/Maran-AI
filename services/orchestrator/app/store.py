@@ -28,4 +28,11 @@ class MissionStore:
         with self.lock:
             rows=self.db.execute("SELECT payload FROM missions ORDER BY created_at DESC").fetchall()
         return [Mission.model_validate_json(r[0]) for r in rows]
+    def clear_workspace(self,workspace_id:str)->list[str]:
+        missions=[m for m in self.all() if m.workspace_id==workspace_id]
+        ids=[m.id for m in missions]
+        if not ids:return []
+        with self.lock,self.db:
+            self.db.executemany("DELETE FROM missions WHERE id=?",[(mid,) for mid in ids])
+        return ids
 store=MissionStore()

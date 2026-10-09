@@ -54,6 +54,11 @@ class WorkspaceMemory:
     def prompt_context(self, workspace_id: str) -> dict[str, str]:
         return {item["key"]: item["value"] for item in self.all(workspace_id)[:20]}
 
+    def clear(self, workspace_id: str) -> int:
+        with self.lock, self.db:
+            cur = self.db.execute("DELETE FROM workspace_memory WHERE workspace_id=?", (workspace_id,))
+        return cur.rowcount
+
     def delete(self, workspace_id: str, key: str) -> bool:
         with self.lock, self.db:
             cur = self.db.execute(

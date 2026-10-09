@@ -129,3 +129,52 @@ async def research(query: str) -> dict:
 async def fetch_page(url: str) -> dict:
     # The backend calls only the fixed Exa endpoint, never a user-supplied host.
     return normalize(await call_exa("web_fetch_exa", {"urls": [public_url(url)], "maxCharacters": 12000}))
+
+
+def _merge_results(items: list[dict]) -> dict:
+    if not items:
+        raise ToolError("Research returned no results")
+    sources, records, texts = [], [], []
+    for item in items:
+        if item.get("text"):
+            texts.append(item["text"])
+        for url in item.get("sources", []):
+            if url not in sources:
+                sources.append(url)
+        for record in item.get("records", []):
+            url = record.get("url")
+            if url and not any(r.get("url") == url for r in records):
+                records.append(record)
+    return {
+        "text": "\n\n".join(texts)[:45000],
+        "sources": sources[:30],
+        "records": records[:30],
+        "retrieved_at": datetime.now(timezone.utc).isoformat(),
+        "verification": "multi_source_retrieved",
+        "provider": "exa",
+        "note": "Multiple public sources were retrieved. Source retrieval still does not prove buying intent, identity, availability, or a business outcome.",
+    }
+
+async def deep_research(query: str) -> dict:
+    """Broader public research with a bounded second query and source dedupe."""
+    first = normalize(await call_exa(
+        "web_search_exa",
+        {"query": query, "numResults": 8,
+         "objective": "Find relevant public primary sources, official pages, and direct source URLs. Do not infer buying intent."}
+    ))
+    try:
+        second = normalize(await call_exa(
+            "web_search_exa",
+            {"query": query + " official contact source",
+             "numResults": 5,
+             "objective": "Prefer official or first-party pages with verifiable contact or factual information and source URLs."}
+        ))
+        items=[first,second]
+        for url in first.get("sources",[])[:2]:
+            try:
+                items.append(await fetch_page(url))
+            except ToolError:
+                pass
+        return _merge_results(items)
+    except ToolError:
+        return first
