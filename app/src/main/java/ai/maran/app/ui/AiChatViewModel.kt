@@ -76,6 +76,18 @@ class AiChatViewModel(application:Application):AndroidViewModel(application) {
         }
     }
 
+    fun recordActionRouting(command:String, outcome:String) {
+        mutable.update { current ->
+            current.copy(
+                messages=current.messages+
+                    AiMessage("user",command,localOnly=true)+
+                    AiMessage("assistant",outcome,localOnly=true),
+                error=null,
+                lastModel="MARAN Action Router • local"
+            )
+        }
+    }
+
     fun sendVoice(text:String) {
         if(text.isBlank()) {
             mutable.update { it.copy(error="I could not hear any words. Please try again.") }
