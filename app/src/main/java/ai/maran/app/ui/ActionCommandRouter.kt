@@ -24,7 +24,7 @@ internal data class ActionRoute(
 )
 
 private fun hasActionVerb(text:String,vararg verbs:String):Boolean =
-    verbs.any { Regex("""\b\${Regex.escape(it)}\b""",RegexOption.IGNORE_CASE).containsMatchIn(text) }
+    verbs.any { Regex("""\\b""" + Regex.escape(it) + """\\b""",RegexOption.IGNORE_CASE).containsMatchIn(text) }
 
 internal fun actionCommandRoute(raw:String):ActionRoute? {
     val text=raw.trim()
