@@ -47,6 +47,9 @@ fun AiChatScreen(
     vm:AiChatViewModel=viewModel(),
     autoListenSignal:Int=0,
     incomingCommand:String?=null,
+    integrations:Map<String,ai.maran.app.data.IntegrationCapability> = emptyMap(),
+    serverConnected:Boolean=false,
+    onCreateMission:(String)->Unit={},
     onIncomingConsumed:()->Unit={},
     onAutoListenConsumed:()->Unit={}
 ) {
@@ -110,11 +113,19 @@ fun AiChatScreen(
     }
     val screenControl=rememberScreenCommand(vm)
     val realWorld=rememberRealWorldCommand(vm)
+    val actionDispatch=rememberActionCommandHandler(
+        vm=vm,
+        integrations=integrations,
+        serverConnected=serverConnected,
+        onCreateMission=onCreateMission
+    )
     val nativeDispatch=rememberPhoneCommand(vm) { command ->
         if(command.trim().lowercase() in listOf("stop speaking","maran stop speaking","stop talking","be quiet")) {
             speaker.stop()
             speakNextReply=false
-        } else if (!runLocal(command) && !screenControl(command) && !realWorld(command)) vm.send(command)
+        } else if (!runLocal(command) && !screenControl(command) && !actionDispatch(command) && !realWorld(command)) {
+            vm.send(command)
+        }
     }
 
     val dispatchCommand:(String)->Unit = { raw ->
@@ -330,7 +341,7 @@ fun AiChatScreen(
                 MaranPrimaryButton(
                     label="Send",
                     onClick={speakNextReply=false;dispatchCommand(input);input=""},
-                    enabled=input.isNotBlank()&&(state.keySaved||vm.supportsLocal(input)||phoneCommandTarget(input)!=null||realWorldCommand(input)!=null||LocalCommandEngine.parse(input)!=null||screenCommand(input)||DeviceInventoryCommand.matches(input)),
+                    enabled=input.isNotBlank()&&(state.keySaved||vm.supportsLocal(input)||phoneCommandTarget(input)!=null||actionCommandRoute(input)!=null||realWorldCommand(input)!=null||LocalCommandEngine.parse(input)!=null||screenCommand(input)||DeviceInventoryCommand.matches(input)),
                     modifier=Modifier.weight(1f)
                 )
                 MaranSecondaryButton(label="Clear",onClick=vm::clear,enabled=state.messages.isNotEmpty())

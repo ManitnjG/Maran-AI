@@ -1,5 +1,5 @@
 import pytest
-from app.action_runtime import propose_actions, execute_action
+from app.action_runtime import propose_actions, execute_action, candidate_tools
 from app.models import Mission, PlanStep
 
 class ActionRouter:
@@ -49,3 +49,13 @@ async def test_approved_action_executes_and_records_provider_ack(monkeypatch):
     assert done.status=="completed"
     assert done.verification=="provider_acknowledged"
     assert done.result["id"]=="msg-123"
+
+
+def test_natural_action_phrasing_maps_to_connector_tools():
+    assert "whatsapp_send" in candidate_tools("Send message in WhatsApp to +919876543210")
+    assert "gmail_send" in candidate_tools("Use Gmail to send a message")
+    assert "google_calendar" in candidate_tools("Create a meeting in my calendar")
+    assert "google_drive" in candidate_tools("Drive upload for this document")
+    assert "github_actions" in candidate_tools("Release APK with GitHub workflow")
+    assert "instagram_post" in candidate_tools("Publish on Instagram")
+    assert "tally_post" in candidate_tools("Create a Tally entry")

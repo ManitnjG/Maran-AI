@@ -36,18 +36,18 @@ TOOL_SCHEMAS: dict[str, dict[str, Any]] = {
 }
 
 _HINTS = {
-    "gmail_send": ("send email", "send mail", "email to", "mail to"),
-    "google_calendar": ("calendar", "schedule meeting", "create event", "book meeting"),
-    "google_drive": ("google drive", "upload to drive", "save to drive"),
-    "github_actions": ("github action", "build apk", "run workflow", "trigger workflow"),
+    "gmail_send": ("send email", "send mail", "email to", "mail to", "gmail", "e-mail"),
+    "google_calendar": ("calendar", "schedule meeting", "create event", "book meeting", "appointment", "meeting"),
+    "google_drive": ("google drive", "upload to drive", "save to drive", "drive upload"),
+    "github_actions": ("github action", "build apk", "run workflow", "trigger workflow", "github workflow", "release apk"),
     "github_code_push": ("push to github", "update github", "commit to github", "github file"),
-    "whatsapp_send": ("whatsapp", "send whatsapp"),
-    "facebook_post": ("facebook post", "post on facebook"),
-    "instagram_post": ("instagram post", "post on instagram"),
-    "linkedin_post": ("linkedin post", "post on linkedin"),
-    "sms_send": ("send sms", "text message"),
+    "whatsapp_send": ("whatsapp", "send whatsapp", "whatsapp message"),
+    "facebook_post": ("facebook post", "post on facebook", "publish on facebook"),
+    "instagram_post": ("instagram post", "post on instagram", "publish on instagram"),
+    "linkedin_post": ("linkedin post", "post on linkedin", "publish on linkedin"),
+    "sms_send": ("send sms", "text message", "send text"),
     "customer_calling": ("call customer", "make a call", "twilio call"),
-    "tally_post": ("post to tally", "tally invoice", "tally voucher"),
+    "tally_post": ("post to tally", "tally invoice", "tally voucher", "tally entry"),
 }
 
 def candidate_tools(objective: str) -> list[str]:
