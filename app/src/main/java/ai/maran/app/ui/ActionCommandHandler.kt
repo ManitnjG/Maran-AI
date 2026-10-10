@@ -234,9 +234,9 @@ internal fun rememberActionCommandHandler(
                         }
                         if(canCloud) {
                             val objective=when(kind) {
-                                ActionKind.EMAIL -> "Send email to \${recipient.trim()} with subject \${subject.trim().ifBlank{"(no subject)"}} and body: \${body.trim()}"
-                                ActionKind.WHATSAPP -> "Send WhatsApp message to \${recipient.trim()} with body: \${body.trim()}"
-                                ActionKind.SMS -> "Send SMS to \${recipient.trim()} with body: \${body.trim()}"
+                                ActionKind.EMAIL -> "Send email to "+recipient.trim()+" with subject "+subject.trim().ifBlank{"(no subject)"}+" and body: "+body.trim()
+                                ActionKind.WHATSAPP -> "Send WhatsApp message to "+recipient.trim()+" with body: "+body.trim()
+                                ActionKind.SMS -> "Send SMS to "+recipient.trim()+" with body: "+body.trim()
                                 else -> route.normalized
                             }
                             routeMission(route.copy(normalized=objective))
