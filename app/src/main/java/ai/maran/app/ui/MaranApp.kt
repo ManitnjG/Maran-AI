@@ -62,6 +62,9 @@ private enum class Tab(val label:String,val icon:ImageVector){Home("Home",Icons.
      Tab.Ai -> AiChatScreen(
       autoListenSignal=voiceStart,
       incomingCommand=pendingVoiceCommand,
+      integrations=state.capabilities?.integrations ?: emptyMap(),
+      serverConnected=state.connected,
+      onCreateMission=vm::create,
       onIncomingConsumed={pendingVoiceCommand=null},
       onAutoListenConsumed={voiceStart=0}
      )
